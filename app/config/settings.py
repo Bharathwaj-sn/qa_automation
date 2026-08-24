@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     databricks_schema: str = "qa"
     databricks_warehouse_id: str | None = None
     test_case_table_name: str = "test_cases"
+    payor_config_catalog: str = "main"
+    payor_config_schema: str = "qa"
+    payor_config_table_name: str = "payor_config"
 
     model_config = SettingsConfigDict(
         env_file=".env",
