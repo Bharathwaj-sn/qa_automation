@@ -7,6 +7,7 @@ from app.models.databricks_sql import SQLExecutionResult
 from app.services.databricks_sql_service import DatabricksSQLExecutionError
 from app.services.payor_config_service import (
     DuplicatePayorConfigError,
+    PayorConfigDeserializationError,
     PayorConfigNotFoundError,
     PayorConfigService,
 )
@@ -45,6 +46,10 @@ def make_row(payor: str = "ABC", table_name: str = "eligibility") -> list[object
     return [values[column] for column in COLUMNS]
 
 
+def replace_row_values(row: list[object], values: dict[str, object]) -> list[object]:
+    return [values.get(column, value) for column, value in zip(COLUMNS, row)]
+
+
 class MockSQLService:
     def __init__(self, result: SQLExecutionResult | None = None, error: Exception | None = None):
         self.result = result or SQLExecutionResult()
@@ -80,6 +85,63 @@ def test_get_config_returns_complete_typed_config_and_parameterized_request():
     assert ":payor" in request.statement and ":table_name" in request.statement
     assert "client_active = 1" in request.statement and "SELECT *" not in request.statement
     assert {parameter.name: parameter.value for parameter in request.parameters} == {"payor": "ABC", "table_name": "eligibility"}
+
+
+def test_parse_json_list_handles_json_strings_empty_arrays_and_existing_lists():
+    assert PayorConfigService._parse_json_list('["member_id"]') == ["member_id"]
+    assert PayorConfigService._parse_json_list("[]") == []
+    assert PayorConfigService._parse_json_list(["member_id"]) == ["member_id"]
+    assert PayorConfigService._parse_json_list(None) == []
+
+
+def test_parse_json_object_handles_json_strings_and_empty_structs():
+    assert PayorConfigService._parse_json_object('{"pattern":"^ABC","columns":["member_id"]}') == {
+        "pattern": "^ABC",
+        "columns": ["member_id"],
+    }
+    assert PayorConfigService._parse_json_object("{}") == {}
+    assert PayorConfigService._parse_json_object(None) is None
+
+
+def test_parse_json_helpers_raise_clear_error_for_invalid_json():
+    with pytest.raises(PayorConfigDeserializationError, match="Invalid JSON array"):
+        PayorConfigService._parse_json_list("not-json")
+    with pytest.raises(PayorConfigDeserializationError, match="Invalid JSON object"):
+        PayorConfigService._parse_json_object("not-json")
+
+
+def test_get_config_normalizes_all_json_encoded_complex_columns():
+    list_fields = [
+        "natural_keys", "not_null_condition_column", "date_standardization_column",
+        "timestamp_standardization_column", "filter_conditions", "float_standardization_column",
+        "integer_standardization_column", "decimal_standardization_column", "header_column_names",
+        "excluded_columns", "sorting_columns",
+    ]
+    row = replace_row_values(
+        make_row(),
+        {
+            **{field_name: '["member_id"]' for field_name in list_fields},
+            "filter_conditions": "[]",
+            "excluded_files": '[{"stringField":"ignored.csv","booleanField":true}]',
+            "regex_function": '{"pattern":"","columns":[]}',
+        },
+    )
+    service, _ = service_for(SQLExecutionResult(columns=COLUMNS, rows=[row]))
+
+    config = service.get_config("ABC", "eligibility")
+
+    assert len(COLUMNS) == len(type(config).model_fields) == 54
+    assert config.natural_keys == ["member_id"]
+    assert config.filter_conditions == []
+    assert config.excluded_files[0].string_field == "ignored.csv"
+    assert config.excluded_files[0].boolean_field is True
+    assert config.regex_function is not None
+    assert config.regex_function.pattern == ""
+    assert config.regex_function.columns == []
+    assert config.rolling_12_month == "12_month_rolling-value"
+    assert config.rolling_12_month_key == "12_month_rolling_key-value"
+    assert config.client_active == 1
+    assert config.rolling_period_years == 12
 
 
 def test_get_config_raises_not_found_for_no_rows():

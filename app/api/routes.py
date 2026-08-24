@@ -5,13 +5,20 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import get_settings
+from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
+from app.models.model_serving import ModelServingRequest, ModelServingResponse
 from app.models.payor_config import PayorConfig
 from app.models.test_case import TestCase, TestCaseCreate
 from app.repositories.metadata_repository import MetadataRepository
 from app.services.databricks_service import DatabricksService
+from app.services.databricks_model_serving_service import (
+    DatabricksModelServingError,
+    DatabricksModelServingService,
+)
 from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
 from app.services.metadata_service import MetadataService
+from app.services.litellm_service import LLMExecutionError, LiteLLMService
 from app.services.payor_config_service import (
     DuplicatePayorConfigError,
     PayorConfigNotFoundError,
@@ -41,6 +48,14 @@ def get_metadata_service(
 def get_sql_service() -> DatabricksSQLService:
     settings = get_settings()
     return DatabricksSQLService(settings=settings)
+
+
+def get_litellm_service() -> LiteLLMService:
+    return LiteLLMService(settings=get_settings())
+
+
+def get_databricks_model_serving_service() -> DatabricksModelServingService:
+    return DatabricksModelServingService(settings=get_settings())
 
 
 def get_test_case_service(
@@ -283,6 +298,34 @@ def list_payor_configs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to list payor configurations.",
+        ) from exc
+
+
+@metadata_router.post("/llm/chat", response_model=LLMResponse)
+def chat_with_llm(
+    request: LLMRequest,
+    service: Annotated[LiteLLMService, Depends(get_litellm_service)],
+):
+    try:
+        return service.chat(request)
+    except LLMExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="LLM request failed.",
+        ) from exc
+
+
+@metadata_router.post("/model-serving/predict", response_model=ModelServingResponse)
+def predict_with_databricks_model_serving(
+    request: ModelServingRequest,
+    service: Annotated[DatabricksModelServingService, Depends(get_databricks_model_serving_service)],
+):
+    try:
+        return service.predict(request)
+    except DatabricksModelServingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Databricks model serving request failed.",
         ) from exc
 
 

@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     databricks_profile: str | None = None
+    databricks_serving_endpoint: str | None = None
     databricks_catalog: str = "main"
     databricks_schema: str = "qa"
     databricks_warehouse_id: str | None = None
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
     payor_config_catalog: str = "main"
     payor_config_schema: str = "qa"
     payor_config_table_name: str = "payor_config"
+    litellm_model: str | None = None
+    litellm_api_base: str | None = None
+    litellm_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
