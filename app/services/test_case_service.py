@@ -66,6 +66,12 @@ class TestCaseService:
 
     def create_test_case(self, test_case: TestCaseCreate) -> TestCase:
         """Create a new test case and store it in Databricks."""
+
+        self.initialize_table(
+            sql_service=self.sql_service,
+            settings=self.settings,
+        )
+
         test_case_id = self._generate_test_case_id()
         now = datetime.now(timezone.utc)
 
@@ -263,7 +269,7 @@ CREATE TABLE IF NOT EXISTS {table_name}
     input_data STRING NOT NULL,
     validation_check STRING NOT NULL,
     expected_result STRING NOT NULL,
-    status STRING NOT NULL DEFAULT 'ACTIVE',
+    status STRING NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL
 )

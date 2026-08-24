@@ -4,6 +4,8 @@ import time
 from typing import Any
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.sql import StatementParameterListItem
+
 
 from app.config import Settings, get_settings
 from app.models.databricks_sql import SQLExecutionRequest, SQLExecutionResult, SQLParameter
@@ -54,8 +56,17 @@ class DatabricksSQLService:
         return getattr(error, "message", None) or str(error)
 
     @staticmethod
-    def _parameter_payload(parameters: list[SQLParameter]) -> list[dict[str, str]]:
-        return [{"name": parameter.name, "value": parameter.value, "type": "text"} for parameter in parameters]
+    def _parameter_payload(
+        parameters: list[SQLParameter],
+    ) -> list[StatementParameterListItem]:
+        return [
+            StatementParameterListItem(
+                name=parameter.name,
+                value=parameter.value,
+                type=parameter.type or "STRING",
+            )
+            for parameter in parameters
+        ]
 
     @staticmethod
     def _column_names(response: Any) -> list[str]:

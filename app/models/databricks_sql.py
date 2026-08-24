@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class SQLParameter(BaseModel):
     name: str
     value: str
+    type: str | None = None
 
 
 class SQLExecutionRequest(BaseModel):
