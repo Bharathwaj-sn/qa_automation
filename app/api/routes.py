@@ -6,11 +6,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import get_settings
 from app.models.metadata import MetadataRefreshRequest
+from app.models.payor_config import PayorConfig
 from app.models.test_case import TestCase, TestCaseCreate
 from app.repositories.metadata_repository import MetadataRepository
 from app.services.databricks_service import DatabricksService
-from app.services.databricks_sql_service import DatabricksSQLService
+from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
 from app.services.metadata_service import MetadataService
+from app.services.payor_config_service import (
+    DuplicatePayorConfigError,
+    PayorConfigNotFoundError,
+    PayorConfigService,
+)
 from app.services.test_case_service import (
     DuplicateTestCaseError,
     TestCaseNotFoundError,
@@ -41,6 +47,12 @@ def get_test_case_service(
     sql_service: Annotated[DatabricksSQLService, Depends(get_sql_service)],
 ) -> TestCaseService:
     return TestCaseService(sql_service=sql_service)
+
+
+def get_payor_config_service(
+    sql_service: Annotated[DatabricksSQLService, Depends(get_sql_service)],
+) -> PayorConfigService:
+    return PayorConfigService(sql_service=sql_service)
 
 
 @router.get("/whoami")
@@ -228,6 +240,49 @@ def list_test_cases(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unable to list test cases: {exc}",
+        ) from exc
+
+
+@metadata_router.get("/payor-config/{payor}/{table_name}", response_model=PayorConfig)
+def get_payor_config(
+    payor: str,
+    table_name: str,
+    service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
+):
+    try:
+        return service.get_config(payor=payor, table_name=table_name)
+    except PayorConfigNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DuplicatePayorConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve payor configuration.",
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve payor configuration.",
+        ) from exc
+
+
+@metadata_router.get("/payor-config/{payor}", response_model=list[PayorConfig])
+def list_payor_configs(
+    payor: str,
+    service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
+):
+    try:
+        return service.list_configs(payor=payor)
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list payor configurations.",
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list payor configurations.",
         ) from exc
 
 
