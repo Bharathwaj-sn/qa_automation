@@ -176,3 +176,21 @@ def test_list_configs_returns_multiple_and_uses_payor_parameter():
 def test_list_configs_returns_empty_list_when_no_rows_exist():
     service, _ = service_for(SQLExecutionResult(columns=COLUMNS, rows=[]))
     assert service.list_configs("ABC") == []
+
+
+def test_list_payors_and_table_configs_use_parameterized_filters():
+    service, sql_service = service_for(SQLExecutionResult(columns=["payor"], rows=[["ABC"], ["XYZ"]]))
+
+    assert service.list_payors() == ["ABC", "XYZ"]
+    assert "SELECT DISTINCT payor" in sql_service.calls[0].statement
+
+    sql_service.result = SQLExecutionResult(columns=COLUMNS, rows=[make_row()])
+    configs = service.list_configs_for_table("eligibility", "silver")
+
+    assert configs[0].table_name == "eligibility"
+    request = sql_service.calls[1]
+    assert ":table_name" in request.statement and ":schema_name" in request.statement
+    assert {parameter.name: parameter.value for parameter in request.parameters} == {
+        "table_name": "eligibility",
+        "schema_name": "silver",
+    }

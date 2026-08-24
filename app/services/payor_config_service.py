@@ -188,3 +188,34 @@ delimited_text_file"""
             )
         )
         return [self._row_to_config(result.columns, row) for row in result.rows]
+
+    def list_payors(self) -> list[str]:
+        result = self.sql_service.execute(
+            self._request(
+                f"SELECT DISTINCT payor\nFROM {self._table_name}\n"
+                "WHERE client_active = 1\nORDER BY payor",
+                [],
+            )
+        )
+        return [str(row[0]) for row in result.rows if row and row[0] is not None]
+
+    def list_configs_for_table(self, table_name: str, schema_name: str | None = None) -> list[PayorConfig]:
+        table_matches = (
+            "(table_name = :table_name OR silver_delta_table_name = :table_name "
+            "OR raw_delta_table_name = :table_name OR unique_records_delta_table_name = :table_name "
+            "OR incremental_records_delta_table_name = :table_name)"
+        )
+        parameters = [SQLParameter(name="table_name", value=table_name)]
+        schema_matches = ""
+        if schema_name is not None:
+            schema_matches = "\nAND (schema_name = :schema_name OR silver_schema_name = :schema_name)"
+            parameters.append(SQLParameter(name="schema_name", value=schema_name))
+
+        result = self.sql_service.execute(
+            self._request(
+                f"SELECT {self._SELECT_COLUMNS}\nFROM {self._table_name}\n"
+                f"WHERE client_active = 1 AND {table_matches}{schema_matches}",
+                parameters,
+            )
+        )
+        return [self._row_to_config(result.columns, row) for row in result.rows]

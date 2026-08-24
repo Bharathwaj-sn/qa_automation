@@ -2,8 +2,8 @@
   "metadata_version": "1.0",
   "refresh": {
     "status": "SUCCESS",
-    "refreshed_at": "2026-08-24T13:54:39.932876Z",
-    "duration_ms": 37,
+    "refreshed_at": "2026-08-24T14:16:10.088937Z",
+    "duration_ms": 47,
     "scope": {
       "type": "schema",
       "catalog_name": "main",
@@ -12080,7 +12080,7 @@
         {
           "name": "sales",
           "metadata": {
-            "refreshed_at": "2026-08-24T13:54:39.932876Z"
+            "refreshed_at": "2026-08-24T14:16:10.088937Z"
           },
           "tables": [
             {
@@ -12088,7 +12088,7 @@
               "schema_name": "sales",
               "name": "orders",
               "metadata": {
-                "refreshed_at": "2026-08-24T13:54:39.932890Z"
+                "refreshed_at": "2026-08-24T14:16:10.088961Z"
               },
               "table_type": "MANAGED",
               "data_source_format": "DELTA",
@@ -12118,7 +12118,7 @@
               "schema_name": "sales",
               "name": "customers",
               "metadata": {
-                "refreshed_at": "2026-08-24T13:54:39.932932Z"
+                "refreshed_at": "2026-08-24T14:16:10.089042Z"
               },
               "table_type": "MANAGED",
               "data_source_format": "DELTA",

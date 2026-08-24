@@ -9,6 +9,7 @@ from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
 from app.models.model_serving import ModelServingRequest, ModelServingResponse
 from app.models.payor_config import PayorConfig
+from app.models.qa_context import QAContext, QAContextRequest
 from app.models.test_case import TestCase, TestCaseCreate
 from app.repositories.metadata_repository import MetadataRepository
 from app.services.databricks_service import DatabricksService
@@ -23,6 +24,11 @@ from app.services.payor_config_service import (
     DuplicatePayorConfigError,
     PayorConfigNotFoundError,
     PayorConfigService,
+)
+from app.services.qa_context_service import (
+    QAContextService,
+    QAContextTableNotFoundError,
+    QAContextTestCaseNotFoundError,
 )
 from app.services.test_case_service import (
     DuplicateTestCaseError,
@@ -68,6 +74,18 @@ def get_payor_config_service(
     sql_service: Annotated[DatabricksSQLService, Depends(get_sql_service)],
 ) -> PayorConfigService:
     return PayorConfigService(sql_service=sql_service)
+
+
+def get_qa_context_service(
+    test_case_service: Annotated[TestCaseService, Depends(get_test_case_service)],
+    payor_config_service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
+    databricks_service: Annotated[DatabricksService, Depends(get_databricks_service)],
+) -> QAContextService:
+    return QAContextService(
+        test_case_service=test_case_service,
+        payor_config_service=payor_config_service,
+        databricks_service=databricks_service,
+    )
 
 
 @router.get("/whoami")
@@ -282,6 +300,24 @@ def get_payor_config(
         ) from exc
 
 
+@metadata_router.get("/payor-config/payors")
+def list_payors(
+    service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
+):
+    try:
+        return {"payors": service.list_payors()}
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list payors.",
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list payors.",
+        ) from exc
+
+
 @metadata_router.get("/payor-config/{payor}", response_model=list[PayorConfig])
 def list_payor_configs(
     payor: str,
@@ -298,6 +334,22 @@ def list_payor_configs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to list payor configurations.",
+        ) from exc
+
+
+@metadata_router.post("/qa/context", response_model=QAContext)
+def build_qa_context(
+    request: QAContextRequest,
+    service: Annotated[QAContextService, Depends(get_qa_context_service)],
+):
+    try:
+        return service.build_context(request)
+    except (QAContextTestCaseNotFoundError, QAContextTableNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to build QA context.",
         ) from exc
 
 
