@@ -1,0 +1,360 @@
+{
+  "metadata_version": "1.0",
+  "refresh": {
+    "status": "SUCCESS",
+    "refreshed_at": "2026-08-24T11:21:09.555743Z",
+    "duration_ms": 18,
+    "scope": {
+      "type": "schema",
+      "catalog_name": "main",
+      "schema_name": "sales",
+      "table_name": null
+    }
+  },
+  "catalogs": [
+    {
+      "name": "dev_adls_lakehouse",
+      "metadata": {
+        "refreshed_at": null
+      },
+      "schemas": [
+        {
+          "name": "silver",
+          "metadata": {
+            "refreshed_at": null
+          },
+          "tables": [
+            {
+              "catalog_name": "dev_adls_lakehouse",
+              "schema_name": "silver",
+              "name": "advent_demographic",
+              "metadata": {
+                "refreshed_at": "2026-08-24T09:36:01.332878Z"
+              },
+              "table_type": "EXTERNAL",
+              "data_source_format": "DELTA",
+              "comment": null,
+              "storage_location": "abfss://mgh-datalakehouse@mgheus2dlsadev01.dfs.core.windows.net/silver/advent/Silver_Advent_Demographic",
+              "columns": [
+                {
+                  "name": "member_number",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 0,
+                  "comment": null
+                },
+                {
+                  "name": "case_identified_date",
+                  "type_name": "DATE",
+                  "type_text": "date",
+                  "nullable": true,
+                  "position": 1,
+                  "comment": null
+                },
+                {
+                  "name": "first_name",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 2,
+                  "comment": null
+                },
+                {
+                  "name": "last_name",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 3,
+                  "comment": null
+                },
+                {
+                  "name": "gender",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 4,
+                  "comment": null
+                },
+                {
+                  "name": "benefit_plan_name",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 5,
+                  "comment": null
+                },
+                {
+                  "name": "population",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 6,
+                  "comment": null
+                },
+                {
+                  "name": "birth_date",
+                  "type_name": "DATE",
+                  "type_text": "date",
+                  "nullable": true,
+                  "position": 7,
+                  "comment": null
+                },
+                {
+                  "name": "address",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 8,
+                  "comment": null
+                },
+                {
+                  "name": "city",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 9,
+                  "comment": null
+                },
+                {
+                  "name": "state_or_province",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 10,
+                  "comment": null
+                },
+                {
+                  "name": "postal_code",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 11,
+                  "comment": null
+                },
+                {
+                  "name": "country",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 12,
+                  "comment": null
+                },
+                {
+                  "name": "home_phone_number",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 13,
+                  "comment": null
+                },
+                {
+                  "name": "primary_case_provider",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 14,
+                  "comment": null
+                },
+                {
+                  "name": "case_type",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 15,
+                  "comment": null
+                },
+                {
+                  "name": "case_status",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 16,
+                  "comment": null
+                },
+                {
+                  "name": "max_ckd_diag",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 17,
+                  "comment": null
+                },
+                {
+                  "name": "comorbidities",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 18,
+                  "comment": null
+                },
+                {
+                  "name": "payor_file_name",
+                  "type_name": "STRING",
+                  "type_text": "string",
+                  "nullable": true,
+                  "position": 19,
+                  "comment": null
+                },
+                {
+                  "name": "file_process_timestamp",
+                  "type_name": "TIMESTAMP",
+                  "type_text": "timestamp",
+                  "nullable": true,
+                  "position": 20,
+                  "comment": null
+                },
+                {
+                  "name": "file_date_extracted",
+                  "type_name": "DATE",
+                  "type_text": "date",
+                  "nullable": true,
+                  "position": 21,
+                  "comment": null
+                },
+                {
+                  "name": "record_effective_date",
+                  "type_name": "DATE",
+                  "type_text": "date",
+                  "nullable": true,
+                  "position": 22,
+                  "comment": null
+                },
+                {
+                  "name": "record_obsolete_date",
+                  "type_name": "DATE",
+                  "type_text": "date",
+                  "nullable": true,
+                  "position": 23,
+                  "comment": null
+                },
+                {
+                  "name": "is_active",
+                  "type_name": "INT",
+                  "type_text": "int",
+                  "nullable": true,
+                  "position": 24,
+                  "comment": null
+                },
+                {
+                  "name": "record_created_date",
+                  "type_name": "TIMESTAMP",
+                  "type_text": "timestamp",
+                  "nullable": true,
+                  "position": 25,
+                  "comment": null
+                },
+                {
+                  "name": "record_updated_date",
+                  "type_name": "TIMESTAMP",
+                  "type_text": "timestamp",
+                  "nullable": true,
+                  "position": 26,
+                  "comment": null
+                },
+                {
+                  "name": "partition_year",
+                  "type_name": "INT",
+                  "type_text": "int",
+                  "nullable": true,
+                  "position": 27,
+                  "comment": null
+                },
+                {
+                  "name": "partition_month",
+                  "type_name": "INT",
+                  "type_text": "int",
+                  "nullable": true,
+                  "position": 28,
+                  "comment": null
+                }
+              ]
+            }
+          ],
+          "volumes": []
+        }
+      ]
+    },
+    {
+      "name": "main",
+      "metadata": {
+        "refreshed_at": null
+      },
+      "schemas": [
+        {
+          "name": "sales",
+          "metadata": {
+            "refreshed_at": "2026-08-24T11:21:09.555743Z"
+          },
+          "tables": [
+            {
+              "catalog_name": "main",
+              "schema_name": "sales",
+              "name": "orders",
+              "metadata": {
+                "refreshed_at": "2026-08-24T11:21:09.555771Z"
+              },
+              "table_type": "MANAGED",
+              "data_source_format": "DELTA",
+              "comment": "Sample table",
+              "storage_location": "s3://main/sales/orders",
+              "columns": [
+                {
+                  "name": "id",
+                  "type_name": "BIGINT",
+                  "type_text": null,
+                  "nullable": false,
+                  "position": 1,
+                  "comment": null
+                },
+                {
+                  "name": "name",
+                  "type_name": "STRING",
+                  "type_text": null,
+                  "nullable": true,
+                  "position": 2,
+                  "comment": null
+                }
+              ]
+            },
+            {
+              "catalog_name": "main",
+              "schema_name": "sales",
+              "name": "customers",
+              "metadata": {
+                "refreshed_at": "2026-08-24T11:21:09.555871Z"
+              },
+              "table_type": "MANAGED",
+              "data_source_format": "DELTA",
+              "comment": "Sample table",
+              "storage_location": "s3://main/sales/customers",
+              "columns": [
+                {
+                  "name": "id",
+                  "type_name": "BIGINT",
+                  "type_text": null,
+                  "nullable": false,
+                  "position": 1,
+                  "comment": null
+                },
+                {
+                  "name": "name",
+                  "type_name": "STRING",
+                  "type_text": null,
+                  "nullable": true,
+                  "position": 2,
+                  "comment": null
+                }
+              ]
+            }
+          ],
+          "volumes": [
+            {
+              "name": "landing"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
