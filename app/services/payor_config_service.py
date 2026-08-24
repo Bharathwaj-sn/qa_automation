@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.config import Settings, get_settings
 from app.models.databricks_sql import SQLExecutionRequest, SQLParameter
-from app.models.payor_config import PayorConfig
+from app.models.payor_config import ExcludedFile, PayorConfig, RegexFunction
 from app.services.databricks_sql_service import DatabricksSQLService
 
 
@@ -18,7 +19,25 @@ class DuplicatePayorConfigError(RuntimeError):
         super().__init__(f"Multiple active payor configurations found for '{payor}' and table '{table_name}'.")
 
 
+class PayorConfigDeserializationError(RuntimeError):
+    pass
+
+
 class PayorConfigService:
+    _LIST_FIELDS = (
+        "natural_keys",
+        "not_null_condition_column",
+        "date_standardization_column",
+        "timestamp_standardization_column",
+        "filter_conditions",
+        "float_standardization_column",
+        "integer_standardization_column",
+        "decimal_standardization_column",
+        "header_column_names",
+        "excluded_columns",
+        "sorting_columns",
+    )
+
     _SELECT_COLUMNS = """payor,
 file_type,
 database_name,
@@ -96,8 +115,55 @@ delimited_text_file"""
         )
 
     @staticmethod
-    def _row_to_config(columns: list[str], row: list[Any]) -> PayorConfig:
-        return PayorConfig.model_validate(dict(zip(columns, row)))
+    def _parse_json_list(value: Any) -> list[Any]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, list):
+            return value
+        if not isinstance(value, str):
+            raise PayorConfigDeserializationError(f"Expected a JSON array or list, got {type(value).__name__}.")
+        try:
+            parsed_value = json.loads(value)
+        except json.JSONDecodeError as error:
+            raise PayorConfigDeserializationError("Invalid JSON array in payor configuration.") from error
+        if parsed_value is None:
+            return []
+        if not isinstance(parsed_value, list):
+            raise PayorConfigDeserializationError("Expected a JSON array in payor configuration.")
+        return parsed_value
+
+    @staticmethod
+    def _parse_json_object(value: Any) -> dict[str, Any] | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, dict):
+            return value
+        if not isinstance(value, str):
+            raise PayorConfigDeserializationError(f"Expected a JSON object or dict, got {type(value).__name__}.")
+        try:
+            parsed_value = json.loads(value)
+        except json.JSONDecodeError as error:
+            raise PayorConfigDeserializationError("Invalid JSON object in payor configuration.") from error
+        if parsed_value is None:
+            return None
+        if not isinstance(parsed_value, dict):
+            raise PayorConfigDeserializationError("Expected a JSON object in payor configuration.")
+        return parsed_value
+
+    @classmethod
+    def _row_to_config(cls, columns: list[str], row: list[Any]) -> PayorConfig:
+        values = dict(zip(columns, row))
+        for field_name in cls._LIST_FIELDS:
+            values[field_name] = cls._parse_json_list(values.get(field_name))
+
+        excluded_files = cls._parse_json_list(values.get("excluded_files"))
+        values["excluded_files"] = [ExcludedFile.model_validate(item) for item in excluded_files]
+
+        regex_function = cls._parse_json_object(values.get("regex_function"))
+        values["regex_function"] = (
+            RegexFunction.model_validate(regex_function) if regex_function is not None else None
+        )
+        return PayorConfig.model_validate(values)
 
     def get_config(self, payor: str, table_name: str) -> PayorConfig:
         result = self.sql_service.execute(

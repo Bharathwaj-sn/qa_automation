@@ -62,6 +62,29 @@ Backend URLs:
 - http://127.0.0.1:8000/health
 - http://127.0.0.1:8000/docs
 
+## LLM configuration
+
+LiteLLM is the application-facing LLM provider abstraction. Configure its provider and default model through environment variables; no credentials are stored in source control.
+
+```env
+LITELLM_MODEL=openai/gpt-4.1-mini
+LITELLM_API_BASE=
+LITELLM_API_KEY=
+```
+
+`LITELLM_MODEL` is the default model, while `LITELLM_API_BASE` and `LITELLM_API_KEY` support providers that require a custom API endpoint or key.
+
+## Databricks Model Serving configuration
+
+Databricks Model Serving invokes an endpoint hosted in Databricks and is intentionally separate from LiteLLM. It uses the existing Databricks unified authentication profile.
+
+```env
+DATABRICKS_PROFILE=DEFAULT
+DATABRICKS_SERVING_ENDPOINT=my-qa-model
+```
+
+`DATABRICKS_PROFILE` selects the configured Databricks authentication profile and `DATABRICKS_SERVING_ENDPOINT` selects the hosted model endpoint.
+
 ## Run the Streamlit frontend
 
 Open Terminal 2 in the project root and run:
@@ -81,6 +104,31 @@ Frontend URL:
 - GET /api/databricks/catalogs/{catalog_name}/schemas
 - GET /api/databricks/catalogs/{catalog_name}/schemas/{schema_name}/objects
 - GET /api/databricks/catalogs/{catalog_name}/schemas/{schema_name}/tables/{table_name}
+- POST /api/llm/chat
+- POST /api/model-serving/predict
+
+## LLM configuration
+
+LiteLLM is the application-facing provider abstraction. Configure the provider and default model through environment variables or `.env` without committing credentials:
+
+```env
+LITELLM_MODEL=openai/gpt-4.1-mini
+LITELLM_API_BASE=
+LITELLM_API_KEY=
+```
+
+`LITELLM_MODEL` is required before calling `POST /api/llm/chat`. A request may override this default model.
+
+## Databricks Model Serving configuration
+
+Databricks Model Serving invokes a model endpoint hosted in Databricks. It uses the existing unified authentication profile; do not add a personal access token to the application.
+
+```env
+DATABRICKS_PROFILE=your-profile
+DATABRICKS_SERVING_ENDPOINT=your-serving-endpoint
+```
+
+`LiteLLMService` and `DatabricksModelServingService` are intentionally separate. LiteLLM is a gateway to external providers, while Databricks Model Serving invokes a configured Databricks-hosted endpoint.
 
 ## Example response
 
