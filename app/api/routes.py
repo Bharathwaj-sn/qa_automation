@@ -291,12 +291,12 @@ def get_payor_config(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to retrieve payor configuration.",
+            detail=f"Unable to retrieve payor configuration. {exc}",
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to retrieve payor configuration.",
+            detail=f"Unable to retrieve payor configuration. {exc}",
         ) from exc
 
 
@@ -328,12 +328,12 @@ def list_payor_configs(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list payor configurations.",
+            detail=f"Unable to list payor configurations. {exc}",
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list payor configurations.",
+            detail=f"Unable to list payor configurations. {exc}",
         ) from exc
 
 
