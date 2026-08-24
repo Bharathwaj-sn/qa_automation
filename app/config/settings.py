@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     databricks_profile: str | None = None
-    databricks_serving_endpoint: str | None = None
+    databricks_serving_model: str | None = None
     databricks_catalog: str = "main"
     databricks_schema: str = "qa"
     databricks_warehouse_id: str | None = None

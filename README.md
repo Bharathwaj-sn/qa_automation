@@ -76,14 +76,14 @@ LITELLM_API_KEY=
 
 ## Databricks Model Serving configuration
 
-Databricks Model Serving invokes an endpoint hosted in Databricks and is intentionally separate from LiteLLM. It uses the existing Databricks unified authentication profile.
+Databricks Model Serving invokes a configured model through the OpenAI-compatible Databricks AI Gateway and is intentionally separate from LiteLLM. It uses the existing Databricks unified authentication profile.
 
 ```env
 DATABRICKS_PROFILE=DEFAULT
-DATABRICKS_SERVING_ENDPOINT=my-qa-model
+DATABRICKS_SERVING_MODEL=databricks-claude-haiku-4-5
 ```
 
-`DATABRICKS_PROFILE` selects the configured Databricks authentication profile and `DATABRICKS_SERVING_ENDPOINT` selects the hosted model endpoint.
+`DATABRICKS_PROFILE` selects the configured Databricks authentication profile and `DATABRICKS_SERVING_MODEL` selects the AI Gateway model.
 
 ## Run the Streamlit frontend
 
@@ -121,11 +121,11 @@ LITELLM_API_KEY=
 
 ## Databricks Model Serving configuration
 
-Databricks Model Serving invokes a model endpoint hosted in Databricks. It uses the existing unified authentication profile; do not add a personal access token to the application.
+Databricks Model Serving invokes a configured model through the OpenAI-compatible Databricks AI Gateway. It uses the existing unified authentication profile; do not add a personal access token to the application.
 
 ```env
 DATABRICKS_PROFILE=your-profile
-DATABRICKS_SERVING_ENDPOINT=your-serving-endpoint
+DATABRICKS_SERVING_MODEL=databricks-claude-haiku-4-5
 ```
 
 `LiteLLMService` and `DatabricksModelServingService` are intentionally separate. LiteLLM is a gateway to external providers, while Databricks Model Serving invokes a configured Databricks-hosted endpoint.
