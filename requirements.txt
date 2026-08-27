@@ -1,6 +1,6 @@
 fastapi==0.141.1
 uvicorn==0.52.4
-databricks-sdk==0.67.0
+databricks-sdk==0.133.0
 pydantic==2.13.4
 streamlit==1.47.1
 requests==2.32.4
