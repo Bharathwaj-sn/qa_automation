@@ -107,18 +107,18 @@ def test_canonicalize_sorts_tables_and_columns_without_mutating_source():
     ]
 
 
-def test_canonicalize_preserves_instruction_and_sample_question_order():
+def test_canonicalize_sorts_id_keyed_instruction_and_sample_question_collections():
     canonical = GenieSerializedSpace.model_validate(serialized_space_payload()).canonicalize()
 
     assert [instruction.id for instruction in canonical.instructions.text_instructions] == [
-        "text-2",
         "text-1",
+        "text-2",
     ]
     assert [example.id for example in canonical.instructions.example_question_sqls] == [
-        "example-2",
         "example-1",
+        "example-2",
     ]
-    assert [question.id for question in canonical.config.sample_questions] == ["sample-2", "sample-1"]
+    assert [question.id for question in canonical.config.sample_questions] == ["sample-1", "sample-2"]
 
 
 def test_duplicate_table_identifiers_are_rejected():

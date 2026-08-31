@@ -62,7 +62,11 @@ def test_resolve_uses_one_exact_title_match_or_defers_creation():
 
 def test_resolve_rejects_missing_title_and_duplicate_title_matches():
     with pytest.raises(GenieSpaceConfigurationError, match="GENIE_SPACE_TITLE"):
-        GenieSpaceCoordinator(FakeGenieService(), Settings(), runtime_state()).resolve()
+        GenieSpaceCoordinator(
+            FakeGenieService(),
+            Settings(genie_space_title=None),
+            runtime_state(),
+        ).resolve()
 
     duplicate_spaces = [
         GenieSpaceSummary(space_id="one", title="QA"),

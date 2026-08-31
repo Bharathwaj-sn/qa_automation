@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 import pytest
 
@@ -117,6 +118,25 @@ def test_build_context_adds_multiple_target_tables_and_deterministic_instruction
         "SELECT * FROM dev_adls_lakehouse.silver.advent_demographic LIMIT 5",
         "SELECT * FROM dev_adls_lakehouse.silver.advent_medicalclaim LIMIT 5",
     ]
+    generated_ids = [
+        *(instruction.id for instruction in space.instructions.text_instructions),
+        *(example.id for example in space.instructions.example_question_sqls),
+        *(question.id for question in space.config.sample_questions),
+    ]
+    assert all(re.fullmatch(r"[0-9a-f]{32}", generated_id) for generated_id in generated_ids)
+
+    canonical = space.canonicalize()
+    assert [instruction.id for instruction in canonical.instructions.text_instructions] == sorted(
+        instruction.id for instruction in canonical.instructions.text_instructions
+    )
+    assert [example.id for example in canonical.instructions.example_question_sqls] == sorted(
+        example.id for example in canonical.instructions.example_question_sqls
+    )
+    assert [question.id for question in canonical.config.sample_questions] == sorted(
+        question.id for question in canonical.config.sample_questions
+    )
+    reparsed = type(canonical).from_serialized_space(canonical.to_serialized_space())
+    assert reparsed == canonical
 
 
 def test_build_context_fails_when_static_table_metadata_is_missing():

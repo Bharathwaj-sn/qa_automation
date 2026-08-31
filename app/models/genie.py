@@ -90,6 +90,9 @@ class GenieSerializedSpace(GenieSerializedSpaceModel):
         canonical.data_sources.tables.sort(key=lambda table: table.identifier)
         for table in canonical.data_sources.tables:
             table.column_configs.sort(key=lambda column: column.column_name)
+        canonical.instructions.text_instructions.sort(key=lambda instruction: instruction.id)
+        canonical.instructions.example_question_sqls.sort(key=lambda example: example.id)
+        canonical.config.sample_questions.sort(key=lambda question: question.id)
         return canonical
 
     def add_table(self, table: GenieTableConfig) -> GenieSerializedSpace:

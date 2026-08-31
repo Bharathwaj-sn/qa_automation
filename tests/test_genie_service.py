@@ -27,11 +27,17 @@ def serialized_payload():
             "text_instructions": [{"id": "text", "content": ["Instruction"]}],
             "example_question_sqls": [
                 {
-                    "id": "example",
+                    "id": "example-2",
                     "question": ["Question"],
                     "sql": ["SELECT 1"],
                     "usage_guidance": ["Guidance"],
-                }
+                },
+                {
+                    "id": "example-1",
+                    "question": ["Earlier question"],
+                    "sql": ["SELECT 0"],
+                    "usage_guidance": ["Earlier guidance"],
+                },
             ],
         },
         "future_root_field": {"retained": True},
@@ -178,6 +184,10 @@ def test_create_space_canonicalizes_complete_configuration_and_passes_optional_d
         "catalog.schema.table_b",
     ]
     assert [column["column_name"] for column in sent["data_sources"]["tables"][1]["column_configs"]] == ["a", "z"]
+    assert [example["id"] for example in sent["instructions"]["example_question_sqls"]] == [
+        "example-1",
+        "example-2",
+    ]
     assert sent["future_root_field"] == {"retained": True}
     assert space.serialized_space is not None
 
@@ -210,8 +220,10 @@ def test_update_space_sends_full_canonicalized_configuration_without_etag():
         "catalog.schema.table_a",
         "catalog.schema.table_b",
     ]
-    assert sent["instructions"] == serialized_payload()["instructions"]
-    assert sent["config"] == serialized_payload()["config"]
+    assert [example["id"] for example in sent["instructions"]["example_question_sqls"]] == [
+        "example-1",
+        "example-2",
+    ]
     assert sent["future_root_field"] == {"retained": True}
 
 
