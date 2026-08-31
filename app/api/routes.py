@@ -47,6 +47,15 @@ router = APIRouter(prefix="/api/databricks")
 metadata_router = APIRouter(prefix="/api")
 
 
+def _error_detail(message: str, error: Exception) -> str:
+    raw_error = error
+    while raw_error.__cause__:
+        raw_error = raw_error.__cause__
+    if get_settings().app_debug:
+        return f"{message} Raw error: {raw_error}"
+    return message
+
+
 def get_databricks_service() -> DatabricksService:
     settings = get_settings()
     return DatabricksService(settings=settings)
@@ -128,7 +137,7 @@ def whoami(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Databricks authentication failed or no active user session is available.",
+            detail=_error_detail("Databricks authentication failed or no active user session is available.", exc),
         ) from exc
 
 
@@ -146,7 +155,7 @@ def who_am_i(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Databricks authentication is not configured or is invalid.",
+            detail=_error_detail("Databricks authentication is not configured or is invalid.", exc),
         ) from exc
 
 
@@ -159,7 +168,7 @@ def list_catalogs(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Unable to load catalogs: {exc}",
+            detail=_error_detail("Unable to load catalogs.", exc),
         ) from exc
 
 
@@ -173,7 +182,7 @@ def list_schemas(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Catalog '{catalog_name}' not found or inaccessible.",
+            detail=_error_detail(f"Catalog '{catalog_name}' not found or inaccessible.", exc),
         ) from exc
 
 
@@ -188,7 +197,7 @@ def list_schema_objects(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Schema '{schema_name}' in catalog '{catalog_name}' not found or inaccessible.",
+            detail=_error_detail(f"Schema '{schema_name}' in catalog '{catalog_name}' not found or inaccessible.", exc),
         ) from exc
 
 
@@ -208,7 +217,7 @@ def get_table_metadata(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Table '{table_name}' in schema '{schema_name}' not found or inaccessible.",
+            detail=_error_detail(f"Table '{table_name}' in schema '{schema_name}' not found or inaccessible.", exc),
         ) from exc
 
 
@@ -223,7 +232,7 @@ def refresh_metadata(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to refresh metadata for scope '{request.scope_type}': {exc}",
+            detail=_error_detail(f"Unable to refresh metadata for scope '{request.scope_type}'.", exc),
         ) from exc
 
 
@@ -269,7 +278,7 @@ def create_test_case(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to create test case: {exc}",
+            detail=_error_detail("Unable to create test case.", exc),
         ) from exc
 
 
@@ -289,7 +298,7 @@ def get_test_case(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to retrieve test case: {exc}",
+            detail=_error_detail("Unable to retrieve test case.", exc),
         ) from exc
 
 
@@ -303,7 +312,7 @@ def list_test_cases(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to list test cases: {exc}",
+            detail=_error_detail("Unable to list test cases.", exc),
         ) from exc
 
 
@@ -317,12 +326,12 @@ def list_file_types(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list file types.",
+            detail=_error_detail("Unable to list file types.", exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list file types.",
+            detail=_error_detail("Unable to list file types.", exc),
         ) from exc
 
 
@@ -341,12 +350,12 @@ def get_payor_config(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to retrieve payor configuration. {exc}",
+            detail=_error_detail("Unable to retrieve payor configuration.", exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to retrieve payor configuration. {exc}",
+            detail=_error_detail("Unable to retrieve payor configuration.", exc),
         ) from exc
 
 
@@ -359,12 +368,12 @@ def list_payors(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list payors.",
+            detail=_error_detail("Unable to list payors.", exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to list payors.",
+            detail=_error_detail("Unable to list payors.", exc),
         ) from exc
 
 
@@ -378,12 +387,12 @@ def list_payor_configs(
     except DatabricksSQLExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to list payor configurations. {exc}",
+            detail=_error_detail("Unable to list payor configurations.", exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to list payor configurations. {exc}",
+            detail=_error_detail("Unable to list payor configurations.", exc),
         ) from exc
 
 
@@ -405,7 +414,7 @@ def build_qa_context(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to build QA context.",
+            detail=_error_detail("Unable to build QA context.", exc),
         ) from exc
 
 
@@ -429,7 +438,7 @@ def build_genie_context(
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to build Genie context.",
+            detail=_error_detail("Unable to build Genie context.", exc),
         ) from exc
 
 
@@ -458,15 +467,14 @@ def apply_genie_context(
     except GenieSpaceConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except GenieError as exc:
-        raw_error = exc.__cause__ or exc
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"{exc} Raw error: {raw_error}",
+            detail=_error_detail(str(exc), exc),
         ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to create or update Genie space.",
+            detail=_error_detail("Unable to create or update Genie space.", exc),
         ) from exc
 
 
@@ -487,7 +495,7 @@ def chat_with_llm(
     except LLMExecutionError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="LLM request failed.",
+            detail=_error_detail("LLM request failed.", exc),
         ) from exc
 
 
@@ -501,7 +509,7 @@ def predict_with_databricks_model_serving(
     except DatabricksModelServingError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Databricks model serving request failed.",
+            detail=_error_detail("Databricks model serving request failed.", exc),
         ) from exc
 
 

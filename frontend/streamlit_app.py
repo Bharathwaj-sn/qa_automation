@@ -8,6 +8,7 @@ from requests import RequestException
 
 API_BASE_URL = "http://127.0.0.1:8000"
 REQUEST_TIMEOUT = 30
+GENIE_REQUEST_TIMEOUT = 20 * 60 + 30
 
 
 def _get(path: str, timeout: int = REQUEST_TIMEOUT) -> Any:
@@ -64,14 +65,22 @@ def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
     try:
-        genie_space = _post("/api/qa/genie-space", payload)
+        with st.spinner(
+            "Updating Genie context and waiting for SQL generation. Maximum wait: 20 minutes.",
+            show_time=True,
+        ):
+            genie_space = _post(
+                "/api/qa/genie-space",
+                payload,
+                timeout=GENIE_REQUEST_TIMEOUT,
+            )
     except RequestException as error:
         st.error(_response_detail(error) or "Unable to create or update the Genie space.")
         return
 
     st.session_state.generated_sql_context = genie_space
-    st.success("Genie space updated.")
-    st.json(genie_space)
+    st.success("Genie SQL generated.")
+    st.code(genie_space["sql"], language="sql")
 
 
 def _response_detail(error: RequestException) -> str | None:

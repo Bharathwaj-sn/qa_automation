@@ -19,7 +19,12 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="QA Automation API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="QA Automation API",
+    version="0.1.0",
+    debug=get_settings().app_debug,
+    lifespan=lifespan,
+)
 app.include_router(router)
 app.include_router(metadata_router)
 
