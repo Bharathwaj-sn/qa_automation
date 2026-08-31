@@ -5,13 +5,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import get_settings
-from app.models.genie import GenieSQLGeneration, GenieSerializedSpace, GenieSpace
+from app.models.genie import GenieConversationMessageRequest, GenieSQLGeneration, GenieSerializedSpace, GenieSpace
 from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
 from app.models.model_serving import ModelServingRequest, ModelServingResponse
 from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest
 from app.models.test_case import TestCase, TestCaseCreate
+from app.models.validation_sql import ValidationSQL, ValidationSQLCreate
 from app.repositories.metadata_repository import MetadataRepository
 from app.services.databricks_service import DatabricksService
 from app.services.databricks_model_serving_service import (
@@ -42,6 +43,7 @@ from app.services.test_case_service import (
     TestCaseNotFoundError,
     TestCaseService,
 )
+from app.services.validation_sql_service import ValidationSQLService
 
 router = APIRouter(prefix="/api/databricks")
 metadata_router = APIRouter(prefix="/api")
@@ -119,6 +121,12 @@ def get_genie_space_coordinator(
     genie_service: Annotated[GenieService, Depends(get_genie_service)],
 ) -> GenieSpaceCoordinator:
     return GenieSpaceCoordinator(genie_service, get_settings(), request.app.state)
+
+
+def get_validation_sql_service(
+    sql_service: Annotated[DatabricksSQLService, Depends(get_sql_service)],
+) -> ValidationSQLService:
+    return ValidationSQLService(sql_service=sql_service, settings=get_settings())
 
 
 def _sql_generation_message(qa_context: QAContext) -> str:
@@ -495,6 +503,47 @@ def apply_genie_context(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=_error_detail("Unable to create or update Genie space.", exc),
+        ) from exc
+
+
+@metadata_router.post("/qa/genie/conversations/{conversation_id}/messages", response_model=GenieSQLGeneration)
+def continue_genie_conversation(
+    conversation_id: str,
+    request: GenieConversationMessageRequest,
+    genie_space_coordinator: Annotated[GenieSpaceCoordinator, Depends(get_genie_space_coordinator)],
+):
+    try:
+        return genie_space_coordinator.continue_conversation(conversation_id, request.content)
+    except GenieSpaceConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except GenieError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_error_detail(str(exc), exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_error_detail("Unable to continue Genie conversation.", exc),
+        ) from exc
+
+
+@metadata_router.post("/qa/validation-sql", response_model=ValidationSQL)
+def save_validation_sql(
+    request: ValidationSQLCreate,
+    service: Annotated[ValidationSQLService, Depends(get_validation_sql_service)],
+):
+    try:
+        return service.save(request)
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_error_detail("Unable to save validation SQL.", exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_error_detail("Unable to save validation SQL.", exc),
         ) from exc
 
 

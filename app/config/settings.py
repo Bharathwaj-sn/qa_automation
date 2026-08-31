@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     payor_config_catalog: str = "main"
     payor_config_schema: str = "qa"
     payor_config_table_name: str = "payor_config"
+    validation_sql_catalog: str = "main"
+    validation_sql_schema: str = "qa"
+    validation_sql_table_name: str = "validation_sql"
     genie_space_id: str | None = None
     genie_space_title: str | None = None
     litellm_model: str | None = None

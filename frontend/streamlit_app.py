@@ -79,8 +79,23 @@ def generate_sql_context(payload: dict[str, Any]) -> None:
         return
 
     st.session_state.generated_sql_context = genie_space
-    st.success("Genie SQL generated.")
-    st.code(genie_space["sql"], language="sql")
+    st.session_state.genie_chat_messages = [
+        {"role": "user", "content": f"Generate validation SQL for {payload['test_case_id']}."},
+        {"role": "assistant", "content": genie_space["sql"]},
+    ]
+    st.session_state.validation_sql_saved = False
+
+
+def continue_genie_conversation(conversation_id: str, content: str) -> dict[str, Any]:
+    return _post(
+        f"/api/qa/genie/conversations/{conversation_id}/messages",
+        {"content": content},
+        timeout=GENIE_REQUEST_TIMEOUT,
+    )
+
+
+def save_validation_sql(payload: dict[str, Any]) -> dict[str, Any]:
+    return _post("/api/qa/validation-sql", payload)
 
 
 def _response_detail(error: RequestException) -> str | None:
@@ -100,6 +115,8 @@ def _initialize_state() -> None:
         "selected_schema": "",
         "generation_selections": [],
         "generated_sql_context": None,
+        "genie_chat_messages": [],
+        "validation_sql_saved": False,
         "metadata_catalog": "",
         "metadata_schema": "",
         "metadata_table": "",
@@ -122,6 +139,8 @@ def _handle_generation_catalog_change(catalog: str) -> None:
         st.session_state.selected_schema = ""
         st.session_state.generation_selections = []
         st.session_state.generated_sql_context = None
+        st.session_state.genie_chat_messages = []
+        st.session_state.validation_sql_saved = False
 
 
 def _handle_generation_schema_change(schema: str) -> None:
@@ -129,6 +148,8 @@ def _handle_generation_schema_change(schema: str) -> None:
         st.session_state.selected_schema = schema
         st.session_state.generation_selections = []
         st.session_state.generated_sql_context = None
+        st.session_state.genie_chat_messages = []
+        st.session_state.validation_sql_saved = False
 
 
 def render_metadata_page() -> None:
@@ -266,6 +287,69 @@ def render_context_preview(payload: dict[str, Any]) -> None:
         st.json(payload)
 
 
+def render_genie_chat() -> None:
+    generation = st.session_state.generated_sql_context
+    if not generation:
+        return
+
+    st.divider()
+    st.subheader("Genie Refinement")
+    st.caption(f"Conversation: {generation['conversation_id']}")
+    for message in st.session_state.genie_chat_messages:
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                st.code(message["content"], language="sql")
+            else:
+                st.write(message["content"])
+
+    action_column, reset_column = st.columns(2)
+    with action_column:
+        if st.button("Save SQL", disabled=st.session_state.validation_sql_saved):
+            try:
+                with st.spinner("Saving generated SQL..."):
+                    for selection in st.session_state.generation_selections:
+                        save_validation_sql(
+                            {
+                                "test_case_id": st.session_state.selected_test_case["test_case_id"],
+                                "target_table": (
+                                    f"{st.session_state.selected_catalog}.{st.session_state.selected_schema}."
+                                    f"{selection['table_name']}"
+                                ),
+                                "payor": selection["payor"],
+                                "file_type": selection["file_type"],
+                                "generated_sql": generation["sql"],
+                                "genie_space_id": generation["space_id"],
+                                "conversation_id": generation["conversation_id"],
+                                "message_id": generation["message_id"],
+                            }
+                        )
+            except RequestException as error:
+                st.error(_response_detail(error) or "Unable to save validation SQL.")
+            else:
+                st.session_state.validation_sql_saved = True
+                st.success("Validation SQL saved.")
+    with reset_column:
+        if st.button("Start New Conversation"):
+            st.session_state.generated_sql_context = None
+            st.session_state.genie_chat_messages = []
+            st.session_state.validation_sql_saved = False
+            st.rerun()
+
+    prompt = st.chat_input("Describe how to refine the validation SQL")
+    if prompt:
+        st.session_state.genie_chat_messages.append({"role": "user", "content": prompt})
+        try:
+            with st.spinner("Waiting for Genie to refine the SQL. Maximum wait: 20 minutes.", show_time=True):
+                response = continue_genie_conversation(generation["conversation_id"], prompt)
+        except RequestException as error:
+            st.error(_response_detail(error) or "Unable to continue Genie conversation.")
+        else:
+            st.session_state.generated_sql_context = response
+            st.session_state.genie_chat_messages.append({"role": "assistant", "content": response["sql"]})
+            st.session_state.validation_sql_saved = False
+            st.rerun()
+
+
 def render_sql_generation_page() -> None:
     st.header("Generate SQL")
     try:
@@ -375,6 +459,7 @@ def render_sql_generation_page() -> None:
         render_context_preview(payload)
         if st.button("Generate SQL", type="primary"):
             generate_sql_context(payload)
+        render_genie_chat()
 
 
 def render_execution_page() -> None:

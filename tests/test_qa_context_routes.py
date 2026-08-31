@@ -5,6 +5,7 @@ from app.api.routes import (
     get_genie_space_coordinator,
     get_payor_config_service,
     get_qa_context_service,
+    get_validation_sql_service,
 )
 from app.main import app
 from app.models.genie import GenieSQLGeneration, GenieSerializedSpace
@@ -12,6 +13,7 @@ from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest, TableContext
 from app.services.genie_service import GenieError
 from app.models.test_case import TestCase
+from app.models.validation_sql import ValidationSQL
 from app.services.qa_context_service import QAContextTestCaseNotFoundError
 
 
@@ -204,3 +206,61 @@ def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response(
     assert response.json()["detail"] == (
         "Unable to create Genie space. Raw error: Databricks rejected the warehouse ID"
     )
+
+
+def test_genie_conversation_route_continues_the_existing_conversation():
+    captured_messages = []
+
+    class FakeGenieSpaceCoordinator:
+        def continue_conversation(self, conversation_id, content):
+            captured_messages.append((conversation_id, content))
+            return GenieSQLGeneration(
+                space_id="qa-space",
+                conversation_id=conversation_id,
+                message_id="message-2",
+                sql="SELECT revised",
+            )
+
+    app.dependency_overrides[get_genie_space_coordinator] = lambda: FakeGenieSpaceCoordinator()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/genie/conversations/conversation-1/messages",
+            json={"content": "Check duplicate health_plan_id values."},
+        )
+    finally:
+        app.dependency_overrides.pop(get_genie_space_coordinator, None)
+
+    assert response.status_code == 200
+    assert response.json()["sql"] == "SELECT revised"
+    assert captured_messages == [("conversation-1", "Check duplicate health_plan_id values.")]
+
+
+def test_validation_sql_route_saves_the_finalized_sql():
+    captured_requests = []
+
+    class FakeValidationSQLService:
+        def save(self, request):
+            captured_requests.append(request)
+            return ValidationSQL(**request.model_dump(), created_at="2026-08-31T00:00:00Z")
+
+    app.dependency_overrides[get_validation_sql_service] = lambda: FakeValidationSQLService()
+    client = TestClient(app)
+    payload = {
+        "test_case_id": "TC1",
+        "target_table": "dev.poc.members",
+        "payor": "ABC",
+        "file_type": "member",
+        "generated_sql": "SELECT 1",
+        "genie_space_id": "qa-space",
+        "conversation_id": "conversation-1",
+        "message_id": "message-2",
+    }
+    try:
+        response = client.post("/api/qa/validation-sql", json=payload)
+    finally:
+        app.dependency_overrides.pop(get_validation_sql_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "SAVED"
+    assert captured_requests[0].generated_sql == "SELECT 1"

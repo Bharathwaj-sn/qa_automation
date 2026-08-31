@@ -171,3 +171,7 @@ class GenieSQLGeneration(BaseModel):
     conversation_id: str
     message_id: str
     sql: str
+
+
+class GenieConversationMessageRequest(BaseModel):
+    content: str = Field(min_length=1)
