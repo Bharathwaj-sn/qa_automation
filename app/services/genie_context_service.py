@@ -5,7 +5,6 @@ from app.models.genie import (
     GenieColumnConfig,
     GenieConfig,
     GenieDataSources,
-    GenieExampleQuestionSql,
     GenieInstructions,
     GenieSampleQuestion,
     GenieSerializedSpace,
@@ -127,19 +126,7 @@ class GenieContextService:
                     ],
                 )
             ],
-            example_question_sqls=self._examples(qa_context),
         )
-
-    def _examples(self, qa_context: QAContext) -> list[GenieExampleQuestionSql]:
-        return [
-            GenieExampleQuestionSql(
-                id=self._genie_id(),
-                question=[f"Show me a sample of {self._identifier(table.catalog, table.schema, table.table_name)}."],
-                sql=[f"SELECT * FROM {self._identifier(table.catalog, table.schema, table.table_name)} LIMIT 5"],
-                usage_guidance=["Use this to inspect target-table data before generating validation SQL."],
-            )
-            for table in qa_context.tables
-        ]
 
     def build_context(self, qa_context: QAContext) -> GenieSerializedSpace:
         static_tables = [self._table_config(metadata) for metadata in self._static_table_metadata()]

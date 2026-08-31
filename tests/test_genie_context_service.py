@@ -132,13 +132,9 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
     assert "resolving the applicable payor configuration" in sample_question
     assert "their results one query at a time" in sample_question
     assert "never a query that constructs SQL as text." in sample_question
-    assert [example.sql[0] for example in space.instructions.example_question_sqls] == [
-        "SELECT * FROM dev_adls_lakehouse.silver.advent_demographic LIMIT 5",
-        "SELECT * FROM dev_adls_lakehouse.silver.advent_medicalclaim LIMIT 5",
-    ]
+    assert space.instructions.example_question_sqls == []
     generated_ids = [
         *(instruction.id for instruction in space.instructions.text_instructions),
-        *(example.id for example in space.instructions.example_question_sqls),
         *(question.id for question in space.config.sample_questions),
     ]
     assert all(re.fullmatch(r"[0-9a-f]{32}", generated_id) for generated_id in generated_ids)
@@ -147,9 +143,7 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
     assert [instruction.id for instruction in canonical.instructions.text_instructions] == sorted(
         instruction.id for instruction in canonical.instructions.text_instructions
     )
-    assert [example.id for example in canonical.instructions.example_question_sqls] == sorted(
-        example.id for example in canonical.instructions.example_question_sqls
-    )
+    assert canonical.instructions.example_question_sqls == []
     assert [question.id for question in canonical.config.sample_questions] == sorted(
         question.id for question in canonical.config.sample_questions
     )
