@@ -448,7 +448,11 @@ def apply_genie_context(
     except GenieSpaceConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except GenieError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        raw_error = exc.__cause__ or exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"{exc} Raw error: {raw_error}",
+        ) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

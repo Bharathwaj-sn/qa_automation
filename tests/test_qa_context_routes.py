@@ -10,6 +10,7 @@ from app.main import app
 from app.models.genie import GenieSerializedSpace, GenieSpace
 from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest, TableContext
+from app.services.genie_service import GenieError
 from app.models.test_case import TestCase
 from app.services.qa_context_service import QAContextTestCaseNotFoundError
 
@@ -146,3 +147,40 @@ def test_genie_space_route_applies_the_generated_serialized_space():
     assert response.status_code == 200
     assert response.json()["space_id"] == "qa-space"
     assert captured_spaces == [GenieSerializedSpace(version=2)]
+
+
+def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response():
+    class FakeGenieContextService:
+        def build_context(self, qa_context):
+            return GenieSerializedSpace(version=2)
+
+    class FakeGenieSpaceCoordinator:
+        def apply_context(self, serialized_space):
+            try:
+                raise RuntimeError("Databricks rejected the warehouse ID")
+            except RuntimeError as error:
+                raise GenieError("Unable to create Genie space.") from error
+
+    app.dependency_overrides[get_qa_context_service] = lambda: FakeContextService()
+    app.dependency_overrides[get_genie_context_service] = lambda: FakeGenieContextService()
+    app.dependency_overrides[get_genie_space_coordinator] = lambda: FakeGenieSpaceCoordinator()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/genie-space",
+            json={
+                "test_case_id": "TC1",
+                "catalog": "dev",
+                "schema": "poc",
+                "selections": [{"table_name": "members", "payor": "ABC", "file_type": "member"}],
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_qa_context_service, None)
+        app.dependency_overrides.pop(get_genie_context_service, None)
+        app.dependency_overrides.pop(get_genie_space_coordinator, None)
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == (
+        "Unable to create Genie space. Raw error: Databricks rejected the warehouse ID"
+    )
