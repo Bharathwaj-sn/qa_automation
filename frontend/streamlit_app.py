@@ -60,13 +60,13 @@ def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
     try:
-        context = _post("/api/qa/context", payload)
+        context = _post("/api/qa/genie-context", payload)
     except RequestException as error:
-        st.error(_response_detail(error) or "Unable to build QA context.")
+        st.error(_response_detail(error) or "Unable to build Genie context.")
         return
 
     st.session_state.generated_sql_context = context
-    st.success("QA context generated.")
+    st.success("Genie context generated.")
     st.json(context)
 
 

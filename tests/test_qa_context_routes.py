@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 
-from app.api.routes import get_payor_config_service, get_qa_context_service
+from app.api.routes import get_genie_context_service, get_payor_config_service, get_qa_context_service
 from app.main import app
+from app.models.genie import GenieSerializedSpace
 from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest, TableContext
 from app.models.test_case import TestCase
@@ -74,3 +75,33 @@ def test_file_type_discovery_route_precedes_dynamic_payor_route():
 
     assert response.status_code == 200
     assert response.json() == {"file_types": ["member", "claims"]}
+
+
+def test_genie_context_route_builds_qa_context_before_generating_serialized_space():
+    captured_contexts = []
+
+    class FakeGenieContextService:
+        def build_context(self, qa_context):
+            captured_contexts.append(qa_context)
+            return GenieSerializedSpace(version=2)
+
+    app.dependency_overrides[get_qa_context_service] = lambda: FakeContextService()
+    app.dependency_overrides[get_genie_context_service] = lambda: FakeGenieContextService()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/genie-context",
+            json={
+                "test_case_id": "TC1",
+                "catalog": "dev",
+                "schema": "poc",
+                "selections": [{"table_name": "members", "payor": "ABC", "file_type": "member"}],
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_qa_context_service, None)
+        app.dependency_overrides.pop(get_genie_context_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["version"] == 2
+    assert captured_contexts[0].tables[0].table_name == "members"

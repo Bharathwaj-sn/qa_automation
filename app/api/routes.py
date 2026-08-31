@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import get_settings
+from app.models.genie import GenieSerializedSpace
 from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
 from app.models.model_serving import ModelServingRequest, ModelServingResponse
@@ -18,6 +19,7 @@ from app.services.databricks_model_serving_service import (
     DatabricksModelServingService,
 )
 from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
+from app.services.genie_context_service import GenieContextError, GenieContextService
 from app.services.metadata_service import MetadataService
 from app.services.litellm_service import LLMExecutionError, LiteLLMService
 from app.services.payor_config_service import (
@@ -89,6 +91,12 @@ def get_qa_context_service(
         payor_config_service=payor_config_service,
         metadata_service=metadata_service,
     )
+
+
+def get_genie_context_service(
+    metadata_service: Annotated[MetadataService, Depends(get_metadata_service)],
+) -> GenieContextService:
+    return GenieContextService(metadata_service=metadata_service, settings=get_settings())
 
 
 @router.get("/whoami")
@@ -378,6 +386,30 @@ def build_qa_context(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to build QA context.",
+        ) from exc
+
+
+@metadata_router.post("/qa/genie-context", response_model=GenieSerializedSpace)
+def build_genie_context(
+    request: QAContextRequest,
+    qa_context_service: Annotated[QAContextService, Depends(get_qa_context_service)],
+    genie_context_service: Annotated[GenieContextService, Depends(get_genie_context_service)],
+):
+    try:
+        qa_context = qa_context_service.build_context(request)
+        return genie_context_service.build_context(qa_context)
+    except (QAContextTestCaseNotFoundError, PayorConfigNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DuplicatePayorConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (QAContextExpectedTableMissingError, QAContextTableMismatchError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except (QAContextMetadataSnapshotNotFoundError, QAContextMetadataTableNotFoundError, GenieContextError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to build Genie context.",
         ) from exc
 
 
