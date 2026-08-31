@@ -44,6 +44,10 @@ def get_test_cases() -> list[dict[str, Any]]:
     return _get("/api/test-cases")
 
 
+def create_test_case(payload: dict[str, str]) -> dict[str, Any]:
+    return _post("/api/test-cases", payload)
+
+
 def get_payors() -> list[str]:
     return _get("/api/payor-config/payors").get("payors", [])
 
@@ -169,7 +173,6 @@ def _handle_generation_schema_change(schema: str) -> None:
 
 
 def render_metadata_page() -> None:
-    st.header("Metadata Management")
     st.subheader("Metadata Refresh")
     scope = st.radio("Scope", ("Catalog", "Schema", "Table"), horizontal=True, key="metadata_scope").lower()
 
@@ -250,36 +253,69 @@ def render_metadata_page() -> None:
 
 
 def render_test_cases_page() -> None:
-    st.header("Test Cases")
+    st.header("Health Check Definitions")
+    with st.expander("Add Health Check", expanded=False):
+        with st.form("create_test_case"):
+            pipeline = st.text_input("Pipeline")
+            component = st.text_input("Component")
+            test_scenario = st.text_area("Test scenario")
+            target_object = st.text_input("Target object")
+            input_data = st.text_area("Input data")
+            validation_check = st.text_area("Validation check")
+            expected_result = st.text_area("Expected result")
+            submitted = st.form_submit_button("Create Health Check", type="primary")
+        if submitted:
+            payload = {
+                "pipeline": pipeline,
+                "component": component,
+                "test_scenario": test_scenario,
+                "target_object": target_object,
+                "input_data": input_data,
+                "validation_check": validation_check,
+                "expected_result": expected_result,
+            }
+            if not all(value.strip() for value in payload.values()):
+                st.error("Complete every health check field.")
+            else:
+                try:
+                    created = create_test_case(payload)
+                except RequestException as error:
+                    st.error(_response_detail(error) or "Unable to create health check.")
+                else:
+                    st.session_state.selected_test_case = created
+                    st.session_state.generated_sql_context = None
+                    st.success(f"Created {created['test_case_id']}.")
+                    st.rerun()
+
     try:
         test_cases = get_test_cases()
     except RequestException:
-        st.error("Unable to retrieve test cases.")
+        st.error("Unable to retrieve health check definitions.")
         return
     if not test_cases:
-        st.info("No saved test cases are available.")
+        st.info("No health check definitions are available.")
         return
 
     labels = {case["test_case_id"]: f"{case['test_case_id']} - {case['component']}" for case in test_cases}
     selected_id = st.selectbox(
-        "Select Test Case",
+        "Select Health Check",
         list(labels),
         format_func=lambda test_case_id: labels.get(test_case_id, ""),
         key="test_case_picker",
     )
     selected_case = next(case for case in test_cases if case["test_case_id"] == selected_id)
-    st.subheader("Test Case Details")
+    st.subheader("Health Check Details")
     st.write(f"**ID:** {selected_case['test_case_id']}")
     st.write(f"**Pipeline:** {selected_case['pipeline']}")
     st.write(f"**Component:** {selected_case['component']}")
     st.write(f"**Scenario:** {selected_case['test_scenario']}")
     st.write(f"**Validation:** {selected_case['validation_check']}")
     st.write(f"**Expected Result:** {selected_case['expected_result']}")
-    if st.button("Use This Test Case", type="primary"):
+    if st.button("Use This Health Check", type="primary"):
         if st.session_state.selected_test_case != selected_case:
             st.session_state.selected_test_case = selected_case
             st.session_state.generated_sql_context = None
-        st.success(f"Selected {selected_case['test_case_id']} for SQL generation.")
+        st.success(f"Selected {selected_case['test_case_id']} for health check SQL generation.")
 
 
 def _build_generation_payload() -> dict[str, Any]:
@@ -294,7 +330,7 @@ def _build_generation_payload() -> dict[str, Any]:
 def render_context_preview(payload: dict[str, Any]) -> None:
     with st.expander("Context Preview", expanded=True):
         test_case = st.session_state.selected_test_case
-        st.subheader("Test Case")
+        st.subheader("Health Check")
         st.write(f"**ID:** {test_case['test_case_id']}")
         st.write(f"**Scenario:** {test_case['test_scenario']}")
         st.write(f"**Validation Check:** {test_case['validation_check']}")
@@ -388,7 +424,7 @@ def render_genie_chat() -> None:
 
 
 def render_sql_generation_page() -> None:
-    st.header("Generate SQL")
+    st.header("Create Health Check SQL")
     try:
         genie_status = get_genie_space_status()
         if genie_status["status"] == "ready":
@@ -400,12 +436,12 @@ def render_sql_generation_page() -> None:
 
     test_case = st.session_state.selected_test_case
     if not test_case:
-        st.warning("Please select a test case from the Test Cases page.")
+        st.warning("Please select a health check from the Health Check Definitions page.")
         return
 
-    st.subheader("Selected Test Case")
+    st.subheader("Selected Health Check")
     st.write(f"**{test_case['test_case_id']}**  {test_case['component']}")
-    with st.expander("Test Case Details"):
+    with st.expander("Health Check Details"):
         st.write(f"**Scenario:** {test_case['test_scenario']}")
         st.write(f"**Validation Check:** {test_case['validation_check']}")
         st.write(f"**Expected Result:** {test_case['expected_result']}")
@@ -495,13 +531,13 @@ def render_sql_generation_page() -> None:
         payload = _build_generation_payload()
         render_context_preview(payload)
         render_genie_context_preview(payload)
-        if st.button("Generate SQL", type="primary"):
+        if st.button("Generate Health Check SQL", type="primary"):
             generate_sql_context(payload)
         render_genie_chat()
 
 
 def render_execution_page() -> None:
-    st.header("Execution")
+    st.header("Run Health Checks")
     try:
         saved_sql_items = get_saved_validation_sql()
     except RequestException as error:
@@ -512,7 +548,7 @@ def render_execution_page() -> None:
         st.info("No saved validation SQL is available to test.")
         return
 
-    st.subheader("Saved Validation SQL")
+    st.subheader("Saved Health Checks")
     for saved_sql in saved_sql_items:
         test_case_column, table_column, scope_column, action_column = st.columns((2, 4, 3, 1))
         test_case_column.write(saved_sql["test_case_id"])
@@ -540,11 +576,11 @@ def render_execution_page() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="QA Automation", layout="wide")
+    st.set_page_config(page_title="Data Health Monitor", layout="wide")
     _initialize_state()
-    st.title("QA Automation")
+    st.title("Data Health Monitor")
     metadata_tab, test_cases_tab, generate_sql_tab, execution_tab = st.tabs(
-        ["Metadata", "Test Cases", "Generate SQL", "Execution"]
+        ["Metadata", "Health Check Definitions", "Create Health Check", "Run Health Checks"]
     )
     with metadata_tab:
         render_metadata_page()

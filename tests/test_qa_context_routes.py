@@ -5,6 +5,7 @@ from app.api.routes import (
     get_genie_space_coordinator,
     get_payor_config_service,
     get_qa_context_service,
+    get_test_case_service,
     get_validation_sql_service,
 )
 from app.main import app
@@ -55,6 +56,32 @@ def test_qa_context_route_returns_context_and_maps_missing_test_case():
     assert response.status_code == 200
     assert response.json()["tables"][0]["table_name"] == "members"
     assert missing.status_code == 404
+
+
+def test_test_case_create_route_returns_the_created_test_case():
+    class FakeTestCaseService:
+        def create_test_case(self, test_case):
+            return TestCase(test_case_id="TC000001", **test_case.model_dump())
+
+    app.dependency_overrides[get_test_case_service] = lambda: FakeTestCaseService()
+    client = TestClient(app)
+    payload = {
+        "pipeline": "Silver",
+        "component": "Member validation",
+        "test_scenario": "Validate member IDs",
+        "target_object": "main.qa.members",
+        "input_data": "Daily member file",
+        "validation_check": "Member ID is populated",
+        "expected_result": "No missing member IDs",
+    }
+    try:
+        response = client.post("/api/test-cases", json=payload)
+    finally:
+        app.dependency_overrides.pop(get_test_case_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["test_case_id"] == "TC000001"
+    assert response.json()["validation_check"] == "Member ID is populated"
 
 
 def test_payor_discovery_route_precedes_dynamic_payor_route():
