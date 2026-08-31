@@ -54,20 +54,24 @@ def get_metadata_summary() -> dict[str, Any]:
     return _get("/api/metadata/summary")
 
 
+def get_genie_space_status() -> dict[str, Any]:
+    return _get("/api/genie-space/status")
+
+
 def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     return _post("/api/metadata/refresh", payload, timeout=60)
 
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
     try:
-        context = _post("/api/qa/genie-context", payload)
+        genie_space = _post("/api/qa/genie-space", payload)
     except RequestException as error:
-        st.error(_response_detail(error) or "Unable to build Genie context.")
+        st.error(_response_detail(error) or "Unable to create or update the Genie space.")
         return
 
-    st.session_state.generated_sql_context = context
-    st.success("Genie context generated.")
-    st.json(context)
+    st.session_state.generated_sql_context = genie_space
+    st.success("Genie space updated.")
+    st.json(genie_space)
 
 
 def _response_detail(error: RequestException) -> str | None:
@@ -255,6 +259,15 @@ def render_context_preview(payload: dict[str, Any]) -> None:
 
 def render_sql_generation_page() -> None:
     st.header("Generate SQL")
+    try:
+        genie_status = get_genie_space_status()
+        if genie_status["status"] == "ready":
+            st.caption(f"Genie space: {genie_status['title']} ({genie_status['space_id']})")
+        else:
+            st.caption(f"Genie space: {genie_status['title']} (pending creation)")
+    except RequestException:
+        st.warning("Unable to retrieve Genie space status.")
+
     test_case = st.session_state.selected_test_case
     if not test_case:
         st.warning("Please select a test case from the Test Cases page.")

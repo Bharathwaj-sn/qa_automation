@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     payor_config_catalog: str = "main"
     payor_config_schema: str = "qa"
     payor_config_table_name: str = "payor_config"
+    genie_space_id: str | None = None
+    genie_space_title: str | None = None
     litellm_model: str | None = None
     litellm_api_base: str | None = None
     litellm_api_key: str | None = None

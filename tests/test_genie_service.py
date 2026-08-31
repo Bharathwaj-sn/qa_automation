@@ -61,18 +61,25 @@ def service_with(genie_api):
 def test_list_spaces_maps_metadata_without_fetching_serialized_configuration():
     list_calls = []
     get_calls = []
-    genie_api = SimpleNamespace(
-        list_spaces=lambda: list_calls.append(True)
-        or SimpleNamespace(
+
+    def list_spaces(**kwargs):
+        list_calls.append(kwargs)
+        if not kwargs:
+            return SimpleNamespace(
+                spaces=[
+                    SimpleNamespace(
+                        space_id="space-a",
+                        title="Space A",
+                        description="Description A",
+                        warehouse_id="warehouse-a",
+                        parent_path="/Users/a",
+                        serialized_space=None,
+                    )
+                ],
+                next_page_token="abc123",
+            )
+        return SimpleNamespace(
             spaces=[
-                SimpleNamespace(
-                    space_id="space-a",
-                    title="Space A",
-                    description="Description A",
-                    warehouse_id="warehouse-a",
-                    parent_path="/Users/a",
-                    serialized_space=None,
-                ),
                 SimpleNamespace(
                     space_id="space-b",
                     title="Space B",
@@ -80,22 +87,25 @@ def test_list_spaces_maps_metadata_without_fetching_serialized_configuration():
                     warehouse_id="warehouse-b",
                     parent_path="/Users/b",
                     serialized_space=None,
-                ),
+                )
             ],
-            next_page_token="abc123",
-        ),
+            next_page_token=None,
+        )
+
+    genie_api = SimpleNamespace(
+        list_spaces=list_spaces,
         get_space=lambda **kwargs: get_calls.append(kwargs),
     )
 
     result = service_with(genie_api).list_spaces()
 
-    assert list_calls == [True]
+    assert list_calls == [{}, {"page_token": "abc123"}]
     assert get_calls == []
     assert [(space.space_id, space.title, space.description, space.warehouse_id, space.parent_path) for space in result.spaces] == [
         ("space-a", "Space A", "Description A", "warehouse-a", "/Users/a"),
         ("space-b", "Space B", "Description B", "warehouse-b", "/Users/b"),
     ]
-    assert result.next_page_token == "abc123"
+    assert result.next_page_token is None
 
 
 @pytest.mark.parametrize("spaces", [None, []])

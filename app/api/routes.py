@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import get_settings
-from app.models.genie import GenieSerializedSpace
+from app.models.genie import GenieSerializedSpace, GenieSpace
 from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
 from app.models.model_serving import ModelServingRequest, ModelServingResponse
@@ -20,6 +20,8 @@ from app.services.databricks_model_serving_service import (
 )
 from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
 from app.services.genie_context_service import GenieContextError, GenieContextService
+from app.services.genie_service import GenieError, GenieService
+from app.services.genie_space_coordinator import GenieSpaceConfigurationError, GenieSpaceCoordinator
 from app.services.metadata_service import MetadataService
 from app.services.litellm_service import LLMExecutionError, LiteLLMService
 from app.services.payor_config_service import (
@@ -97,6 +99,17 @@ def get_genie_context_service(
     metadata_service: Annotated[MetadataService, Depends(get_metadata_service)],
 ) -> GenieContextService:
     return GenieContextService(metadata_service=metadata_service, settings=get_settings())
+
+
+def get_genie_service() -> GenieService:
+    return GenieService(settings=get_settings())
+
+
+def get_genie_space_coordinator(
+    request: Request,
+    genie_service: Annotated[GenieService, Depends(get_genie_service)],
+) -> GenieSpaceCoordinator:
+    return GenieSpaceCoordinator(genie_service, get_settings(), request.app.state)
 
 
 @router.get("/whoami")
@@ -411,6 +424,43 @@ def build_genie_context(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to build Genie context.",
         ) from exc
+
+
+@metadata_router.post("/qa/genie-space", response_model=GenieSpace)
+def apply_genie_context(
+    request: QAContextRequest,
+    qa_context_service: Annotated[QAContextService, Depends(get_qa_context_service)],
+    genie_context_service: Annotated[GenieContextService, Depends(get_genie_context_service)],
+    genie_space_coordinator: Annotated[GenieSpaceCoordinator, Depends(get_genie_space_coordinator)],
+):
+    try:
+        qa_context = qa_context_service.build_context(request)
+        serialized_space = genie_context_service.build_context(qa_context)
+        return genie_space_coordinator.apply_context(serialized_space)
+    except (QAContextTestCaseNotFoundError, PayorConfigNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DuplicatePayorConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (QAContextExpectedTableMissingError, QAContextTableMismatchError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except (QAContextMetadataSnapshotNotFoundError, QAContextMetadataTableNotFoundError, GenieContextError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except GenieSpaceConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except GenieError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to create or update Genie space.",
+        ) from exc
+
+
+@metadata_router.get("/genie-space/status")
+def get_genie_space_status(
+    genie_space_coordinator: Annotated[GenieSpaceCoordinator, Depends(get_genie_space_coordinator)],
+):
+    return genie_space_coordinator.status()
 
 
 @metadata_router.post("/llm/chat", response_model=LLMResponse)

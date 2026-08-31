@@ -75,12 +75,19 @@ class GenieService:
 
     def list_spaces(self) -> GenieSpaceListResponse:
         try:
-            response = self.client.genie.list_spaces()
-            spaces = getattr(response, "spaces", None) or []
-            return GenieSpaceListResponse(
-                spaces=[self._to_genie_space_summary(space) for space in spaces],
-                next_page_token=getattr(response, "next_page_token", None),
-            )
+            spaces = []
+            page_token = None
+            while True:
+                response = (
+                    self.client.genie.list_spaces()
+                    if page_token is None
+                    else self.client.genie.list_spaces(page_token=page_token)
+                )
+                spaces.extend(getattr(response, "spaces", None) or [])
+                page_token = getattr(response, "next_page_token", None)
+                if not page_token:
+                    break
+            return GenieSpaceListResponse(spaces=[self._to_genie_space_summary(space) for space in spaces])
         except GenieError:
             raise
         except Exception as exc:
