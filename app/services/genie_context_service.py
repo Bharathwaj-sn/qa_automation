@@ -97,8 +97,9 @@ class GenieContextService:
         )
         target_context = [
             (
-                f"Target table {self._identifier(table.catalog, table.schema, table.table_name)} uses payor "
-                f"{table.payor_config.payor} and file type {table.payor_config.file_type}."
+                f"For target table {self._identifier(table.catalog, table.schema, table.table_name)}, query "
+                f"{payor_config_identifier} where payor is {table.payor_config.payor} and file type is "
+                f"{table.payor_config.file_type}; validate only this target using that configuration."
             )
             for table in qa_context.tables
         ]
@@ -108,11 +109,24 @@ class GenieContextService:
                     id=self._genie_id(),
                     content=[
                         "Generate validation SQL only. Do not execute SQL.",
-                        f"Use test case {qa_context.test_case.test_case_id} to determine the validation requirement.",
-                        f"Use {test_case_identifier} for additional test case context.",
-                        f"Use {payor_config_identifier} for additional payor configuration context.",
+                        (
+                            f"First query {test_case_identifier} for test case "
+                            f"{qa_context.test_case.test_case_id}."
+                        ),
+                        "Inspect test_case_id, test_scenario, validation_check, and expected_result.",
+                        "Treat validation_check and expected_result as the source of truth for the validation requirement.",
+                        (
+                            f"For each target, query {payor_config_identifier} using its payor and file type "
+                            "before generating validation SQL."
+                        ),
                         *target_context,
-                        "Return SQL only when asked to generate validation SQL.",
+                        "Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables.",
+                        "Process each target independently with its corresponding payor and file type configuration.",
+                        "Use target metadata to verify referenced tables and columns exist; inspect a small sample only when needed.",
+                        "Translate the specific test-case requirement into validation SQL for the applicable target table.",
+                        "Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name.",
+                        "Do not generate SQL for unrelated tables available in the Genie space.",
+                        "Return only the final validation SQL.",
                     ],
                 )
             ],
@@ -127,7 +141,7 @@ class GenieContextService:
                 sql=[f"SELECT * FROM {self._identifier(table.catalog, table.schema, table.table_name)} LIMIT 5"],
                 usage_guidance=["Use this to inspect target-table data before generating validation SQL."],
             )
-            for index, table in enumerate(qa_context.tables)
+            for table in qa_context.tables
         ]
 
     def build_context(self, qa_context: QAContext) -> GenieSerializedSpace:
@@ -144,7 +158,13 @@ class GenieContextService:
                 sample_questions=[
                     GenieSampleQuestion(
                         id=self._genie_id(),
-                        question=[f"Generate validation SQL for test case {qa_context.test_case.test_case_id}."],
+                        question=[
+                            (
+                                f"Generate validation SQL for test case {qa_context.test_case.test_case_id} by first "
+                                "reading the test case, then resolving the applicable payor configuration, then validating "
+                                "the specified target table. Return only the validation SQL."
+                            )
+                        ],
                     )
                 ]
             ),

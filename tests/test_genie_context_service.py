@@ -98,7 +98,7 @@ def test_build_context_adds_static_and_selected_target_tables_with_all_metadata_
     assert space.version == 2
 
 
-def test_build_context_adds_multiple_target_tables_and_deterministic_instructions_and_examples():
+def test_build_context_adds_multiple_target_tables_and_procedural_instructions_and_examples():
     test_cases = make_table("dev_adls_lakehouse", "testing_poc", "test_cases", ["test_case_id"])
     payor_config = make_table("dev_adls_lakehouse", "util", "payor_config", ["payor"])
     demographic = make_table("dev_adls_lakehouse", "silver", "advent_demographic", ["member_number"])
@@ -112,8 +112,25 @@ def test_build_context_adds_multiple_target_tables_and_deterministic_instruction
 
     instruction = space.instructions.text_instructions[0].content
     assert "Generate validation SQL only. Do not execute SQL." in instruction
-    assert any("TC000002" in value for value in instruction)
-    assert any("advent" in value and "Demographic" in value for value in instruction)
+    assert any("dev_adls_lakehouse.testing_poc.test_cases" in value and "TC000002" in value for value in instruction)
+    assert "Inspect test_case_id, test_scenario, validation_check, and expected_result." in instruction
+    assert "Treat validation_check and expected_result as the source of truth for the validation requirement." in instruction
+    assert any("dev_adls_lakehouse.util.payor_config" in value and "payor and file type" in value for value in instruction)
+    assert any(
+        "advent" in value
+        and "Demographic" in value
+        and "dev_adls_lakehouse.util.payor_config" in value
+        for value in instruction
+    )
+    assert "Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables." in instruction
+    assert "Use target metadata to verify referenced tables and columns exist; inspect a small sample only when needed." in instruction
+    assert "Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name." in instruction
+    assert "Return only the final validation SQL." in instruction
+    sample_question = space.config.sample_questions[0].question[0]
+    assert "TC000002" in sample_question
+    assert "first reading the test case" in sample_question
+    assert "resolving the applicable payor configuration" in sample_question
+    assert "Return only the validation SQL." in sample_question
     assert [example.sql[0] for example in space.instructions.example_question_sqls] == [
         "SELECT * FROM dev_adls_lakehouse.silver.advent_demographic LIMIT 5",
         "SELECT * FROM dev_adls_lakehouse.silver.advent_medicalclaim LIMIT 5",
