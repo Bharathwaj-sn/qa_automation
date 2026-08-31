@@ -113,16 +113,17 @@ class GenieContextService:
                             f"1. Query {test_case_identifier} where test_case_id is "
                             f"{qa_context.test_case.test_case_id}."
                         ),
-                        "2. Inspect test_case_id, test_scenario, validation_check, and expected_result; treat validation_check and expected_result as the source of truth.",
+                        "2. Execute that lookup as a small standalone query and inspect its result. Do not combine test-case, payor-configuration, and target investigation into one CTE or one SQL statement.",
+                        "3. Inspect test_case_id, test_scenario, validation_check, and expected_result; treat validation_check and expected_result as the source of truth.",
                         (
-                            f"3. For each target, query {payor_config_identifier} using its payor and file type "
+                            f"4. For each target, query {payor_config_identifier} using its payor and file type "
                             "before generating validation SQL."
                         ),
                         *target_context,
-                        "4. Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables. Process each target independently with its corresponding configuration.",
-                        "5. Use target metadata to verify referenced tables and columns. You may execute read-only intermediate queries, including test-case lookups, payor-configuration lookups, and small target-table samples, then reason over their results.",
-                        "6. Translate the specific test-case requirement into validation SQL for the applicable target table. Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name.",
-                        "7. Do not generate SQL for unrelated tables. You may execute the final validation SQL to validate it, but return only the final validation SQL.",
+                        "5. Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables. Process each target independently with its corresponding configuration.",
+                        "6. Use target metadata to verify referenced tables and columns. Execute small read-only payor-configuration lookups and target-table samples as needed, observe each result, then decide the next query.",
+                        "7. Translate the specific test-case requirement into validation SQL for the applicable target table. Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name.",
+                        "8. Execute the candidate validation SQL and inspect its result. If it fails, is incomplete, or does not test the requirement, investigate further and revise it before responding. Do not generate SQL for unrelated tables. Never return a CTE, CASE, CONCAT, or other query that constructs validation SQL as a string. Return only the final executable validation SQL that directly validates the target table.",
                     ],
                 )
             ],
@@ -159,7 +160,7 @@ class GenieContextService:
                                 f"Generate validation SQL for test case {qa_context.test_case.test_case_id} by first "
                                 "reading the test case, then resolving the applicable payor configuration, then validating "
                                 "the specified target table. You may execute read-only intermediate queries and reason over "
-                                "their results. You may execute the final validation SQL to validate it, but return only the final validation SQL."
+                                "their results one query at a time. Execute and revise the candidate validation SQL as needed, then return only the final executable validation SQL, never a query that constructs SQL as text."
                             )
                         ],
                     )

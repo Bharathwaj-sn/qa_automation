@@ -113,7 +113,8 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
     instruction = space.instructions.text_instructions[0].content
     assert "Generate validation SQL by following this numbered workflow." in instruction
     assert any("dev_adls_lakehouse.testing_poc.test_cases" in value and "TC000002" in value for value in instruction)
-    assert any(value.startswith("2. Inspect test_case_id") for value in instruction)
+    assert any(value.startswith("2. Execute that lookup as a small standalone query") for value in instruction)
+    assert any(value.startswith("3. Inspect test_case_id") for value in instruction)
     assert any("dev_adls_lakehouse.util.payor_config" in value and "payor and file type" in value for value in instruction)
     assert any(
         "advent" in value
@@ -121,16 +122,16 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
         and "dev_adls_lakehouse.util.payor_config" in value
         for value in instruction
     )
-    assert any(value.startswith("4. Only validate the target table") for value in instruction)
-    assert any("You may execute read-only intermediate queries" in value for value in instruction)
-    assert any(value.startswith("6. Translate the specific test-case") for value in instruction)
-    assert any(value.startswith("7. Do not generate SQL for unrelated tables") for value in instruction)
+    assert any(value.startswith("5. Only validate the target table") for value in instruction)
+    assert any("Execute small read-only payor-configuration lookups" in value for value in instruction)
+    assert any(value.startswith("7. Translate the specific test-case") for value in instruction)
+    assert any(value.startswith("8. Execute the candidate validation SQL") and "Never return a CTE, CASE, CONCAT" in value for value in instruction)
     sample_question = space.config.sample_questions[0].question[0]
     assert "TC000002" in sample_question
     assert "first reading the test case" in sample_question
     assert "resolving the applicable payor configuration" in sample_question
-    assert "You may execute read-only intermediate queries" in sample_question
-    assert "You may execute the final validation SQL to validate it, but return only the final validation SQL." in sample_question
+    assert "their results one query at a time" in sample_question
+    assert "never a query that constructs SQL as text." in sample_question
     assert [example.sql[0] for example in space.instructions.example_question_sqls] == [
         "SELECT * FROM dev_adls_lakehouse.silver.advent_demographic LIMIT 5",
         "SELECT * FROM dev_adls_lakehouse.silver.advent_medicalclaim LIMIT 5",
