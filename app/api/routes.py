@@ -122,10 +122,27 @@ def get_genie_space_coordinator(
 
 
 def _sql_generation_message(qa_context: QAContext) -> str:
+    settings = get_settings()
     test_case_id = qa_context.test_case.test_case_id
-    if len(qa_context.tables) > 1:
-        return f"Generate validation SQL for test case {test_case_id} for all selected target tables."
-    return f"Generate validation SQL for test case {test_case_id}."
+    test_case_identifier = (
+        f"{settings.databricks_catalog}.{settings.databricks_schema}.{settings.test_case_table_name}"
+    )
+    payor_config_identifier = (
+        f"{settings.payor_config_catalog}.{settings.payor_config_schema}.{settings.payor_config_table_name}"
+    )
+    targets = "; ".join(
+        f"{table.catalog}.{table.schema}.{table.table_name} ({table.payor_config.payor}/{table.payor_config.file_type})"
+        for table in qa_context.tables
+    )
+    return (
+        f"Generate validation SQL for test case {test_case_id}. "
+        f"1. Query {test_case_identifier} where test_case_id is {test_case_id}; use validation_check and "
+        "expected_result as the requirement. "
+        f"2. For each target, query {payor_config_identifier} where payor and file_type match the listed values. "
+        f"3. Validate only these target tables: {targets}. "
+        "4. Verify referenced columns using target metadata and do not invent validation logic. "
+        "5. Return only the final validation SQL; do not execute it."
+    )
 
 
 @router.get("/whoami")

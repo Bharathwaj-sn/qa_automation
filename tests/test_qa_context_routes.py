@@ -153,7 +153,16 @@ def test_genie_space_route_applies_context_then_generates_sql():
     assert response.json()["space_id"] == "qa-space"
     assert response.json()["sql"] == "SELECT 1"
     assert captured_spaces == [
-        (GenieSerializedSpace(version=2), "Generate validation SQL for test case TC1.")
+        (
+            GenieSerializedSpace(version=2),
+            "Generate validation SQL for test case TC1. "
+            "1. Query main.qa.test_cases where test_case_id is TC1; use validation_check and "
+            "expected_result as the requirement. "
+            "2. For each target, query main.qa.payor_config where payor and file_type match the listed values. "
+            "3. Validate only these target tables: dev.poc.members (ABC/member). "
+            "4. Verify referenced columns using target metadata and do not invent validation logic. "
+            "5. Return only the final validation SQL; do not execute it.",
+        )
     ]
 
 
