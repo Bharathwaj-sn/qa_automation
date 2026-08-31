@@ -17,6 +17,7 @@ from app.models.qa_context import QAContext, TableContext
 from app.repositories.metadata_repository import MetadataSnapshotNotFoundError, MetadataTableNotFoundError
 from app.services.metadata_service import MetadataService
 
+from uuid import uuid4
 
 class GenieContextError(RuntimeError):
     pass
@@ -26,6 +27,10 @@ class GenieContextService:
     def __init__(self, metadata_service: MetadataService, settings: Settings | None = None):
         self.metadata_service = metadata_service
         self.settings = settings or get_settings()
+
+    @staticmethod
+    def _genie_id() -> str:
+        return uuid4().hex
 
     @staticmethod
     def _identifier(catalog: str, schema: str, table_name: str) -> str:
@@ -100,7 +105,7 @@ class GenieContextService:
         return GenieInstructions(
             text_instructions=[
                 GenieTextInstruction(
-                    id="qa-validation-context",
+                    id=self._genie_id(),
                     content=[
                         "Generate validation SQL only. Do not execute SQL.",
                         f"Use test case {qa_context.test_case.test_case_id} to determine the validation requirement.",
@@ -117,7 +122,7 @@ class GenieContextService:
     def _examples(self, qa_context: QAContext) -> list[GenieExampleQuestionSql]:
         return [
             GenieExampleQuestionSql(
-                id=f"sample-target-{index + 1}",
+                id=self._genie_id(),
                 question=[f"Show me a sample of {self._identifier(table.catalog, table.schema, table.table_name)}."],
                 sql=[f"SELECT * FROM {self._identifier(table.catalog, table.schema, table.table_name)} LIMIT 5"],
                 usage_guidance=["Use this to inspect target-table data before generating validation SQL."],
@@ -138,7 +143,7 @@ class GenieContextService:
             config=GenieConfig(
                 sample_questions=[
                     GenieSampleQuestion(
-                        id="generate-validation-sql",
+                        id=self._genie_id(),
                         question=[f"Generate validation SQL for test case {qa_context.test_case.test_case_id}."],
                     )
                 ]
