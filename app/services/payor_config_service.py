@@ -10,13 +10,13 @@ from app.services.databricks_sql_service import DatabricksSQLService
 
 
 class PayorConfigNotFoundError(RuntimeError):
-    def __init__(self, payor: str, table_name: str):
-        super().__init__(f"No active payor configuration found for '{payor}' and table '{table_name}'.")
+    def __init__(self, payor: str, file_type: str):
+        super().__init__(f"No active payor configuration found for '{payor}' and file type '{file_type}'.")
 
 
 class DuplicatePayorConfigError(RuntimeError):
-    def __init__(self, payor: str, table_name: str):
-        super().__init__(f"Multiple active payor configurations found for '{payor}' and table '{table_name}'.")
+    def __init__(self, payor: str, file_type: str):
+        super().__init__(f"Multiple active payor configurations found for '{payor}' and file type '{file_type}'.")
 
 
 class PayorConfigDeserializationError(RuntimeError):
@@ -165,18 +165,18 @@ delimited_text_file"""
         )
         return PayorConfig.model_validate(values)
 
-    def get_config(self, payor: str, table_name: str) -> PayorConfig:
+    def get_config(self, payor: str, file_type: str) -> PayorConfig:
         result = self.sql_service.execute(
             self._request(
                 f"SELECT {self._SELECT_COLUMNS}\nFROM {self._table_name}\n"
-                "WHERE payor = :payor AND table_name = :table_name AND client_active = 1",
-                [SQLParameter(name="payor", value=payor), SQLParameter(name="table_name", value=table_name)],
+                "WHERE payor = :payor AND file_type = :file_type AND client_active = 1",
+                [SQLParameter(name="payor", value=payor), SQLParameter(name="file_type", value=file_type)],
             )
         )
         if not result.rows:
-            raise PayorConfigNotFoundError(payor, table_name)
+            raise PayorConfigNotFoundError(payor, file_type)
         if len(result.rows) > 1:
-            raise DuplicatePayorConfigError(payor, table_name)
+            raise DuplicatePayorConfigError(payor, file_type)
         return self._row_to_config(result.columns, result.rows[0])
 
     def list_configs(self, payor: str) -> list[PayorConfig]:
@@ -199,23 +199,22 @@ delimited_text_file"""
         )
         return [str(row[0]) for row in result.rows if row and row[0] is not None]
 
-    def list_configs_for_table(self, table_name: str, schema_name: str | None = None) -> list[PayorConfig]:
-        table_matches = (
-            "(table_name = :table_name OR silver_delta_table_name = :table_name "
-            "OR raw_delta_table_name = :table_name OR unique_records_delta_table_name = :table_name "
-            "OR incremental_records_delta_table_name = :table_name)"
+    def list_file_types(self, payor: str) -> list[str]:
+        result = self.sql_service.execute(
+            self._request(
+                f"SELECT DISTINCT file_type\nFROM {self._table_name}\n"
+                "WHERE payor = :payor AND client_active = 1\nORDER BY file_type",
+                [SQLParameter(name="payor", value=payor)],
+            )
         )
-        parameters = [SQLParameter(name="table_name", value=table_name)]
-        schema_matches = ""
-        if schema_name is not None:
-            schema_matches = "\nAND (schema_name = :schema_name OR silver_schema_name = :schema_name)"
-            parameters.append(SQLParameter(name="schema_name", value=schema_name))
+        return [str(row[0]) for row in result.rows if row and row[0] is not None]
 
+    def list_configs_for_table(self, catalog_table_name: str) -> list[PayorConfig]:
         result = self.sql_service.execute(
             self._request(
                 f"SELECT {self._SELECT_COLUMNS}\nFROM {self._table_name}\n"
-                f"WHERE client_active = 1 AND {table_matches}{schema_matches}",
-                parameters,
+                "WHERE client_active = 1 AND LOWER(sql_pool_table) = :catalog_table_name",
+                [SQLParameter(name="catalog_table_name", value=catalog_table_name.lower())],
             )
         )
         return [self._row_to_config(result.columns, row) for row in result.rows]
