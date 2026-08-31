@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import requests
@@ -59,6 +60,10 @@ def get_genie_space_status() -> dict[str, Any]:
     return _get("/api/genie-space/status")
 
 
+def get_genie_context(payload: dict[str, Any]) -> dict[str, Any]:
+    return _post("/api/qa/genie-context", payload)
+
+
 def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     return _post("/api/metadata/refresh", payload, timeout=60)
 
@@ -98,6 +103,14 @@ def save_validation_sql(payload: dict[str, Any]) -> dict[str, Any]:
     return _post("/api/qa/validation-sql", payload)
 
 
+def get_saved_validation_sql() -> list[dict[str, Any]]:
+    return _get("/api/qa/validation-sql")
+
+
+def execute_saved_validation_sql(validation_sql_id: str) -> dict[str, Any]:
+    return _post(f"/api/qa/validation-sql/{validation_sql_id}/execute", {})
+
+
 def _response_detail(error: RequestException) -> str | None:
     response = getattr(error, "response", None)
     if response is None:
@@ -117,6 +130,9 @@ def _initialize_state() -> None:
         "generated_sql_context": None,
         "genie_chat_messages": [],
         "validation_sql_saved": False,
+        "genie_context_preview": None,
+        "genie_context_preview_key": None,
+        "test_case_execution_result": None,
         "metadata_catalog": "",
         "metadata_schema": "",
         "metadata_table": "",
@@ -245,7 +261,12 @@ def render_test_cases_page() -> None:
         return
 
     labels = {case["test_case_id"]: f"{case['test_case_id']} - {case['component']}" for case in test_cases}
-    selected_id = st.selectbox("Select Test Case", list(labels), format_func=labels.get, key="test_case_picker")
+    selected_id = st.selectbox(
+        "Select Test Case",
+        list(labels),
+        format_func=lambda test_case_id: labels.get(test_case_id, ""),
+        key="test_case_picker",
+    )
     selected_case = next(case for case in test_cases if case["test_case_id"] == selected_id)
     st.subheader("Test Case Details")
     st.write(f"**ID:** {selected_case['test_case_id']}")
@@ -285,6 +306,22 @@ def render_context_preview(payload: dict[str, Any]) -> None:
         st.dataframe(payload["selections"], hide_index=True, use_container_width=True)
     with st.expander("Context Request"):
         st.json(payload)
+
+
+def render_genie_context_preview(payload: dict[str, Any]) -> None:
+    payload_key = json.dumps(payload, sort_keys=True)
+    if st.session_state.genie_context_preview_key != payload_key:
+        try:
+            st.session_state.genie_context_preview = get_genie_context(payload)
+            st.session_state.genie_context_preview_key = payload_key
+        except RequestException as error:
+            st.session_state.genie_context_preview = None
+            st.session_state.genie_context_preview_key = None
+            st.error(_response_detail(error) or "Unable to build the Genie context preview.")
+
+    with st.expander("Raw Genie Context", expanded=False):
+        if st.session_state.genie_context_preview:
+            st.json(st.session_state.genie_context_preview)
 
 
 def render_genie_chat() -> None:
@@ -457,6 +494,7 @@ def render_sql_generation_page() -> None:
     if not problems:
         payload = _build_generation_payload()
         render_context_preview(payload)
+        render_genie_context_preview(payload)
         if st.button("Generate SQL", type="primary"):
             generate_sql_context(payload)
         render_genie_chat()
@@ -464,7 +502,41 @@ def render_sql_generation_page() -> None:
 
 def render_execution_page() -> None:
     st.header("Execution")
-    st.info("SQL execution will be available in the next phase.")
+    try:
+        saved_sql_items = get_saved_validation_sql()
+    except RequestException as error:
+        st.error(_response_detail(error) or "Unable to retrieve saved validation SQL.")
+        return
+
+    if not saved_sql_items:
+        st.info("No saved validation SQL is available to test.")
+        return
+
+    st.subheader("Saved Validation SQL")
+    for saved_sql in saved_sql_items:
+        test_case_column, table_column, scope_column, action_column = st.columns((2, 4, 3, 1))
+        test_case_column.write(saved_sql["test_case_id"])
+        table_column.write(saved_sql["target_table"])
+        scope_column.write(f"{saved_sql['payor']} | {saved_sql['file_type']}")
+        if action_column.button("Test", key=f"test_{saved_sql['validation_sql_id']}"):
+            try:
+                with st.spinner(f"Testing {saved_sql['target_table']}..."):
+                    st.session_state.test_case_execution_result = execute_saved_validation_sql(
+                        saved_sql["validation_sql_id"]
+                    )
+            except RequestException as error:
+                st.error(_response_detail(error) or "Unable to execute saved validation SQL.")
+
+        result = st.session_state.test_case_execution_result
+        if result and result["validation_sql_id"] == saved_sql["validation_sql_id"]:
+            st.success(
+                f"{result['execution_status']}: {result['row_count']} row(s) returned."
+            )
+            if result["columns"]:
+                rows = [dict(zip(result["columns"], row)) for row in result["rows"]]
+                st.dataframe(rows, hide_index=True, use_container_width=True)
+            else:
+                st.json(result)
 
 
 def main() -> None:

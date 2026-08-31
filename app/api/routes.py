@@ -12,7 +12,7 @@ from app.models.model_serving import ModelServingRequest, ModelServingResponse
 from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest
 from app.models.test_case import TestCase, TestCaseCreate
-from app.models.validation_sql import ValidationSQL, ValidationSQLCreate
+from app.models.validation_sql import TestCaseResult, ValidationSQL, ValidationSQLCreate
 from app.repositories.metadata_repository import MetadataRepository
 from app.services.databricks_service import DatabricksService
 from app.services.databricks_model_serving_service import (
@@ -43,7 +43,7 @@ from app.services.test_case_service import (
     TestCaseNotFoundError,
     TestCaseService,
 )
-from app.services.validation_sql_service import ValidationSQLService
+from app.services.validation_sql_service import ValidationSQLNotFoundError, ValidationSQLService
 
 router = APIRouter(prefix="/api/databricks")
 metadata_router = APIRouter(prefix="/api")
@@ -544,6 +544,36 @@ def save_validation_sql(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=_error_detail("Unable to save validation SQL.", exc),
+        ) from exc
+
+
+@metadata_router.get("/qa/validation-sql", response_model=list[ValidationSQL])
+def list_validation_sql(
+    service: Annotated[ValidationSQLService, Depends(get_validation_sql_service)],
+    test_case_id: str | None = None,
+):
+    try:
+        return service.list_saved(test_case_id)
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_error_detail("Unable to retrieve saved validation SQL.", exc),
+        ) from exc
+
+
+@metadata_router.post("/qa/validation-sql/{validation_sql_id}/execute", response_model=TestCaseResult)
+def execute_validation_sql(
+    validation_sql_id: str,
+    service: Annotated[ValidationSQLService, Depends(get_validation_sql_service)],
+):
+    try:
+        return service.execute_saved(validation_sql_id)
+    except ValidationSQLNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_error_detail("Unable to execute saved validation SQL.", exc),
         ) from exc
 
 

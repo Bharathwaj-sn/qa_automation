@@ -242,7 +242,11 @@ def test_validation_sql_route_saves_the_finalized_sql():
     class FakeValidationSQLService:
         def save(self, request):
             captured_requests.append(request)
-            return ValidationSQL(**request.model_dump(), created_at="2026-08-31T00:00:00Z")
+            return ValidationSQL(
+                **request.model_dump(),
+                validation_sql_id="validation-1",
+                created_at="2026-08-31T00:00:00Z",
+            )
 
     app.dependency_overrides[get_validation_sql_service] = lambda: FakeValidationSQLService()
     client = TestClient(app)
@@ -264,3 +268,32 @@ def test_validation_sql_route_saves_the_finalized_sql():
     assert response.status_code == 200
     assert response.json()["status"] == "SAVED"
     assert captured_requests[0].generated_sql == "SELECT 1"
+
+
+def test_validation_sql_execution_route_executes_a_saved_statement():
+    class FakeValidationSQLService:
+        def execute_saved(self, validation_sql_id):
+            return {
+                "validation_sql_id": validation_sql_id,
+                "test_case_id": "TC1",
+                "target_table": "dev.poc.members",
+                "payor": "ABC",
+                "file_type": "member",
+                "statement_id": "statement-1",
+                "execution_status": "SUCCEEDED",
+                "row_count": 1,
+                "columns": ["invalid_count"],
+                "rows": [[0]],
+                "executed_at": "2026-08-31T00:00:00Z",
+            }
+
+    app.dependency_overrides[get_validation_sql_service] = lambda: FakeValidationSQLService()
+    client = TestClient(app)
+    try:
+        response = client.post("/api/qa/validation-sql/validation-1/execute")
+    finally:
+        app.dependency_overrides.pop(get_validation_sql_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["execution_status"] == "SUCCEEDED"
+    assert response.json()["rows"] == [[0]]

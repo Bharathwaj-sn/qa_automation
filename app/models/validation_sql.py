@@ -19,3 +19,18 @@ class ValidationSQLCreate(BaseModel):
 class ValidationSQL(ValidationSQLCreate):
     created_at: datetime
     status: str = "SAVED"
+    validation_sql_id: str
+
+
+class TestCaseResult(BaseModel):
+    validation_sql_id: str
+    test_case_id: str
+    target_table: str
+    payor: str
+    file_type: str
+    statement_id: str | None = None
+    execution_status: str
+    row_count: int
+    columns: list[str]
+    rows: list[list]
+    executed_at: datetime
