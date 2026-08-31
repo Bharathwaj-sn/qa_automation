@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import get_settings
-from app.models.genie import GenieSerializedSpace, GenieSpace
+from app.models.genie import GenieSQLGeneration, GenieSerializedSpace, GenieSpace
 from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
 from app.models.model_serving import ModelServingRequest, ModelServingResponse
@@ -110,6 +110,13 @@ def get_genie_space_coordinator(
     genie_service: Annotated[GenieService, Depends(get_genie_service)],
 ) -> GenieSpaceCoordinator:
     return GenieSpaceCoordinator(genie_service, get_settings(), request.app.state)
+
+
+def _sql_generation_message(qa_context: QAContext) -> str:
+    test_case_id = qa_context.test_case.test_case_id
+    if len(qa_context.tables) > 1:
+        return f"Generate validation SQL for test case {test_case_id} for all selected target tables."
+    return f"Generate validation SQL for test case {test_case_id}."
 
 
 @router.get("/whoami")
@@ -426,7 +433,7 @@ def build_genie_context(
         ) from exc
 
 
-@metadata_router.post("/qa/genie-space", response_model=GenieSpace)
+@metadata_router.post("/qa/genie-space", response_model=GenieSQLGeneration)
 def apply_genie_context(
     request: QAContextRequest,
     qa_context_service: Annotated[QAContextService, Depends(get_qa_context_service)],
@@ -436,7 +443,10 @@ def apply_genie_context(
     try:
         qa_context = qa_context_service.build_context(request)
         serialized_space = genie_context_service.build_context(qa_context)
-        return genie_space_coordinator.apply_context(serialized_space)
+        return genie_space_coordinator.generate_sql(
+            serialized_space,
+            _sql_generation_message(qa_context),
+        )
     except (QAContextTestCaseNotFoundError, PayorConfigNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except DuplicatePayorConfigError as exc:

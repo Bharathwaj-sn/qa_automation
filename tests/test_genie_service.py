@@ -64,6 +64,14 @@ def service_with(genie_api):
     )
 
 
+def genie_message(sql="SELECT 1"):
+    return SimpleNamespace(
+        conversation_id="conversation-123",
+        message_id="message-123",
+        attachments=[SimpleNamespace(query=SimpleNamespace(query=sql))] if sql is not None else [],
+    )
+
+
 def test_list_spaces_maps_metadata_without_fetching_serialized_configuration():
     list_calls = []
     get_calls = []
@@ -225,6 +233,47 @@ def test_update_space_sends_full_canonicalized_configuration_without_etag():
         "example-2",
     ]
     assert sent["future_root_field"] == {"retained": True}
+
+
+def test_start_conversation_and_create_message_wait_for_and_extract_generated_sql():
+    start_calls = []
+    message_calls = []
+    genie_api = SimpleNamespace(
+        start_conversation_and_wait=lambda **kwargs: start_calls.append(kwargs) or genie_message("SELECT start"),
+        create_message_and_wait=lambda **kwargs: message_calls.append(kwargs) or genie_message("SELECT follow_up"),
+    )
+    service = service_with(genie_api)
+
+    started = service.start_conversation_and_wait("space-123", "Generate validation SQL for test case TC1.")
+    continued = service.create_message_and_wait("space-123", "conversation-123", "Refine the SQL.")
+
+    assert start_calls == [{"space_id": "space-123", "content": "Generate validation SQL for test case TC1."}]
+    assert message_calls == [
+        {
+            "space_id": "space-123",
+            "conversation_id": "conversation-123",
+            "content": "Refine the SQL.",
+        }
+    ]
+    assert started.sql == "SELECT start"
+    assert continued.sql == "SELECT follow_up"
+    assert continued.conversation_id == "conversation-123"
+    assert continued.message_id == "message-123"
+
+
+def test_message_waiter_failures_and_missing_sql_become_genie_errors():
+    failing_api = SimpleNamespace(
+        create_message_and_wait=lambda **kwargs: (_ for _ in ()).throw(RuntimeError("sdk failed")),
+        start_conversation_and_wait=lambda **kwargs: genie_message(None),
+    )
+    service = service_with(failing_api)
+
+    with pytest.raises(GenieError, match="Unable to send message") as sdk_error:
+        service.create_message_and_wait("space-123", "conversation-123", "Generate SQL.")
+    assert isinstance(sdk_error.value.__cause__, RuntimeError)
+
+    with pytest.raises(GenieError, match="did not contain generated SQL"):
+        service.start_conversation_and_wait("space-123", "Generate SQL.")
 
 
 def test_trash_space_delegates_to_sdk():

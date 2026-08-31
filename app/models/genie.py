@@ -164,3 +164,10 @@ class GenieSpaceListResponse(BaseModel):
 
 class GenieSpaceUpdateRequest(BaseModel):
     serialized_space: GenieSerializedSpace
+
+
+class GenieSQLGeneration(BaseModel):
+    space_id: str
+    conversation_id: str
+    message_id: str
+    sql: str

@@ -7,7 +7,7 @@ from app.api.routes import (
     get_qa_context_service,
 )
 from app.main import app
-from app.models.genie import GenieSerializedSpace, GenieSpace
+from app.models.genie import GenieSQLGeneration, GenieSerializedSpace
 from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest, TableContext
 from app.services.genie_service import GenieError
@@ -113,7 +113,7 @@ def test_genie_context_route_builds_qa_context_before_generating_serialized_spac
     assert captured_contexts[0].tables[0].table_name == "members"
 
 
-def test_genie_space_route_applies_the_generated_serialized_space():
+def test_genie_space_route_applies_context_then_generates_sql():
     captured_spaces = []
 
     class FakeGenieContextService:
@@ -121,9 +121,14 @@ def test_genie_space_route_applies_the_generated_serialized_space():
             return GenieSerializedSpace(version=2)
 
     class FakeGenieSpaceCoordinator:
-        def apply_context(self, serialized_space):
-            captured_spaces.append(serialized_space)
-            return GenieSpace(space_id="qa-space", serialized_space=serialized_space)
+        def generate_sql(self, serialized_space, content):
+            captured_spaces.append((serialized_space, content))
+            return GenieSQLGeneration(
+                space_id="qa-space",
+                conversation_id="conversation-1",
+                message_id="message-1",
+                sql="SELECT 1",
+            )
 
     app.dependency_overrides[get_qa_context_service] = lambda: FakeContextService()
     app.dependency_overrides[get_genie_context_service] = lambda: FakeGenieContextService()
@@ -146,7 +151,10 @@ def test_genie_space_route_applies_the_generated_serialized_space():
 
     assert response.status_code == 200
     assert response.json()["space_id"] == "qa-space"
-    assert captured_spaces == [GenieSerializedSpace(version=2)]
+    assert response.json()["sql"] == "SELECT 1"
+    assert captured_spaces == [
+        (GenieSerializedSpace(version=2), "Generate validation SQL for test case TC1.")
+    ]
 
 
 def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response():
@@ -155,7 +163,7 @@ def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response(
             return GenieSerializedSpace(version=2)
 
     class FakeGenieSpaceCoordinator:
-        def apply_context(self, serialized_space):
+        def generate_sql(self, serialized_space, content):
             try:
                 raise RuntimeError("Databricks rejected the warehouse ID")
             except RuntimeError as error:

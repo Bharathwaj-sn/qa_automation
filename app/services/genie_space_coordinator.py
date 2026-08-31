@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
-from app.models.genie import GenieSerializedSpace, GenieSpace
+from app.models.genie import GenieSQLGeneration, GenieSerializedSpace, GenieSpace
 from app.services.genie_service import GenieService
 
 
@@ -48,25 +48,33 @@ class GenieSpaceCoordinator:
 
     def apply_context(self, serialized_space: GenieSerializedSpace) -> GenieSpace:
         with self.runtime_state.genie_space_lock:
-            space_id = self.runtime_state.genie_space_id
-            if space_id:
-                space = self.genie_service.update_space(space_id, serialized_space)
-                self.runtime_state.genie_space_status = "ready"
-                return space
+            return self._apply_context(serialized_space)
 
-            warehouse_id = (self.settings.databricks_warehouse_id or "").strip()
-            if not warehouse_id:
-                raise GenieSpaceConfigurationError(
-                    "DATABRICKS_WAREHOUSE_ID must be configured before creating the Genie space."
-                )
-            title = (self.settings.genie_space_title or "").strip()
-            if not title:
-                raise GenieSpaceConfigurationError("GENIE_SPACE_TITLE must be configured.")
-            space = self.genie_service.create_space(
-                warehouse_id=warehouse_id,
-                serialized_space=serialized_space,
-                title=title,
-            )
-            self.runtime_state.genie_space_id = space.space_id
+    def generate_sql(self, serialized_space: GenieSerializedSpace, content: str) -> GenieSQLGeneration:
+        with self.runtime_state.genie_space_lock:
+            space = self._apply_context(serialized_space)
+            return self.genie_service.start_conversation_and_wait(space.space_id, content)
+
+    def _apply_context(self, serialized_space: GenieSerializedSpace) -> GenieSpace:
+        space_id = self.runtime_state.genie_space_id
+        if space_id:
+            space = self.genie_service.update_space(space_id, serialized_space)
             self.runtime_state.genie_space_status = "ready"
             return space
+
+        warehouse_id = (self.settings.databricks_warehouse_id or "").strip()
+        if not warehouse_id:
+            raise GenieSpaceConfigurationError(
+                "DATABRICKS_WAREHOUSE_ID must be configured before creating the Genie space."
+            )
+        title = (self.settings.genie_space_title or "").strip()
+        if not title:
+            raise GenieSpaceConfigurationError("GENIE_SPACE_TITLE must be configured.")
+        space = self.genie_service.create_space(
+            warehouse_id=warehouse_id,
+            serialized_space=serialized_space,
+            title=title,
+        )
+        self.runtime_state.genie_space_id = space.space_id
+        self.runtime_state.genie_space_status = "ready"
+        return space

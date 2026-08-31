@@ -6,6 +6,7 @@ from databricks.sdk import WorkspaceClient
 
 from app.config import Settings, get_settings
 from app.models.genie import (
+    GenieSQLGeneration,
     GenieSerializedSpace,
     GenieSpace,
     GenieSpaceListResponse,
@@ -143,6 +144,60 @@ class GenieService:
             raise
         except Exception as exc:
             raise GenieError("Unable to update Genie space.") from exc
+
+    @staticmethod
+    def _to_sql_generation(response: Any, space_id: str) -> GenieSQLGeneration:
+        sql = next(
+            (
+                query.query
+                for attachment in getattr(response, "attachments", None) or []
+                if (query := getattr(attachment, "query", None)) and getattr(query, "query", None)
+            ),
+            None,
+        )
+        if not sql:
+            raise GenieError("Genie response did not contain generated SQL.")
+
+        conversation_id = getattr(response, "conversation_id", None)
+        message_id = getattr(response, "message_id", None)
+        if not conversation_id or not message_id:
+            raise GenieError("Genie response did not include conversation_id or message_id.")
+        return GenieSQLGeneration(
+            space_id=space_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            sql=sql,
+        )
+
+    def start_conversation_and_wait(self, space_id: str, content: str) -> GenieSQLGeneration:
+        try:
+            response = self.client.genie.start_conversation_and_wait(
+                space_id=space_id,
+                content=content,
+            )
+            return self._to_sql_generation(response, space_id)
+        except GenieError:
+            raise
+        except Exception as exc:
+            raise GenieError("Unable to start Genie conversation.") from exc
+
+    def create_message_and_wait(
+        self,
+        space_id: str,
+        conversation_id: str,
+        content: str,
+    ) -> GenieSQLGeneration:
+        try:
+            response = self.client.genie.create_message_and_wait(
+                space_id=space_id,
+                conversation_id=conversation_id,
+                content=content,
+            )
+            return self._to_sql_generation(response, space_id)
+        except GenieError:
+            raise
+        except Exception as exc:
+            raise GenieError("Unable to send message to Genie space.") from exc
 
     def trash_space(self, space_id: str) -> None:
         try:
