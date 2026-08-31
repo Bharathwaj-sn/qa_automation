@@ -31,10 +31,11 @@ COLUMNS = [
 ]
 
 
-def make_row(payor: str = "ABC", table_name: str = "eligibility") -> list[object]:
+def make_row(payor: str = "ABC", file_type: str = "eligibility", table_name: str = "eligibility") -> list[object]:
     values = {column: f"{column}-value" for column in COLUMNS}
     values.update({
-        "payor": payor, "table_name": table_name, "natural_keys": ["member_id"],
+        "payor": payor, "file_type": file_type, "table_name": table_name, "sql_pool_table": table_name,
+        "natural_keys": ["member_id"],
         "not_null_condition_column": ["member_id"], "date_standardization_column": ["birth_date"],
         "timestamp_standardization_column": ["created_at"], "filter_conditions": ["active = true"],
         "float_standardization_column": ["amount"], "integer_standardization_column": ["count"],
@@ -82,9 +83,9 @@ def test_get_config_returns_complete_typed_config_and_parameterized_request():
     assert config.model_dump(by_alias=True)["12_month_rolling"] == "12_month_rolling-value"
     assert len(type(config).model_fields) == 54
     request = sql_service.calls[0]
-    assert ":payor" in request.statement and ":table_name" in request.statement
+    assert ":payor" in request.statement and ":file_type" in request.statement
     assert "client_active = 1" in request.statement and "SELECT *" not in request.statement
-    assert {parameter.name: parameter.value for parameter in request.parameters} == {"payor": "ABC", "table_name": "eligibility"}
+    assert {parameter.name: parameter.value for parameter in request.parameters} == {"payor": "ABC", "file_type": "eligibility"}
 
 
 def test_parse_json_list_handles_json_strings_empty_arrays_and_existing_lists():
@@ -163,7 +164,12 @@ def test_get_config_propagates_sql_error():
 
 
 def test_list_configs_returns_multiple_and_uses_payor_parameter():
-    service, sql_service = service_for(SQLExecutionResult(columns=COLUMNS, rows=[make_row("ABC", "eligibility"), make_row("ABC", "claims")]))
+    service, sql_service = service_for(
+        SQLExecutionResult(
+            columns=COLUMNS,
+            rows=[make_row("ABC", table_name="eligibility"), make_row("ABC", table_name="claims")],
+        )
+    )
 
     configs = service.list_configs("ABC")
 
@@ -178,19 +184,20 @@ def test_list_configs_returns_empty_list_when_no_rows_exist():
     assert service.list_configs("ABC") == []
 
 
-def test_list_payors_and_table_configs_use_parameterized_filters():
+def test_list_payors_file_types_and_table_configs_use_parameterized_filters():
     service, sql_service = service_for(SQLExecutionResult(columns=["payor"], rows=[["ABC"], ["XYZ"]]))
 
     assert service.list_payors() == ["ABC", "XYZ"]
     assert "SELECT DISTINCT payor" in sql_service.calls[0].statement
 
+    sql_service.result = SQLExecutionResult(columns=["file_type"], rows=[["eligibility"], ["claims"]])
+    assert service.list_file_types("ABC") == ["eligibility", "claims"]
+    assert sql_service.calls[1].parameters[0].name == "payor"
+
     sql_service.result = SQLExecutionResult(columns=COLUMNS, rows=[make_row()])
-    configs = service.list_configs_for_table("eligibility", "silver")
+    configs = service.list_configs_for_table("eligibility")
 
     assert configs[0].table_name == "eligibility"
-    request = sql_service.calls[1]
-    assert ":table_name" in request.statement and ":schema_name" in request.statement
-    assert {parameter.name: parameter.value for parameter in request.parameters} == {
-        "table_name": "eligibility",
-        "schema_name": "silver",
-    }
+    request = sql_service.calls[2]
+    assert ":catalog_table_name" in request.statement
+    assert {parameter.name: parameter.value for parameter in request.parameters} == {"catalog_table_name": "eligibility"}

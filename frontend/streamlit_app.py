@@ -46,6 +46,10 @@ def get_payors() -> list[str]:
     return _get("/api/payor-config/payors").get("payors", [])
 
 
+def get_file_types(payor: str) -> list[str]:
+    return _get(f"/api/payor-config/{payor}/file-types").get("file_types", [])
+
+
 def get_metadata_summary() -> dict[str, Any]:
     return _get("/api/metadata/summary")
 
@@ -55,23 +59,8 @@ def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
-    request_base = {
-        "test_case_id": payload["test_case_id"],
-        "catalog": payload["catalog"],
-        "schema": payload["schema"],
-    }
     try:
-        if payload["table_scope"] == "all":
-            context = _post("/api/qa/context", {**request_base, "include_all_tables": True})
-        else:
-            table_contexts = [
-                _post("/api/qa/context", {**request_base, "table_name": table_name})
-                for table_name in payload["tables"]
-            ]
-            context = {
-                "test_case": table_contexts[0]["test_case"],
-                "tables": [table for response in table_contexts for table in response["tables"]],
-            }
+        context = _post("/api/qa/context", payload)
     except RequestException as error:
         st.error(_response_detail(error) or "Unable to build QA context.")
         return
@@ -83,7 +72,7 @@ def generate_sql_context(payload: dict[str, Any]) -> None:
 
 def _response_detail(error: RequestException) -> str | None:
     response = getattr(error, "response", None)
-    if response is None or response.status_code != 404:
+    if response is None:
         return None
     try:
         return response.json().get("detail")
@@ -96,10 +85,7 @@ def _initialize_state() -> None:
         "selected_test_case": None,
         "selected_catalog": "",
         "selected_schema": "",
-        "selected_tables": [],
-        "table_scope": "selected",
-        "selected_payors": [],
-        "payor_scope": "selected",
+        "generation_selections": [],
         "generated_sql_context": None,
         "metadata_catalog": "",
         "metadata_schema": "",
@@ -121,14 +107,14 @@ def _handle_generation_catalog_change(catalog: str) -> None:
     if catalog != st.session_state.selected_catalog:
         st.session_state.selected_catalog = catalog
         st.session_state.selected_schema = ""
-        st.session_state.selected_tables = []
+        st.session_state.generation_selections = []
         st.session_state.generated_sql_context = None
 
 
 def _handle_generation_schema_change(schema: str) -> None:
     if schema != st.session_state.selected_schema:
         st.session_state.selected_schema = schema
-        st.session_state.selected_tables = []
+        st.session_state.generation_selections = []
         st.session_state.generated_sql_context = None
 
 
@@ -246,10 +232,7 @@ def _build_generation_payload() -> dict[str, Any]:
         "test_case_id": st.session_state.selected_test_case["test_case_id"],
         "catalog": st.session_state.selected_catalog,
         "schema": st.session_state.selected_schema,
-        "table_scope": st.session_state.table_scope,
-        "tables": st.session_state.selected_tables if st.session_state.table_scope == "selected" else [],
-        "payor_scope": st.session_state.payor_scope,
-        "payors": st.session_state.selected_payors if st.session_state.payor_scope == "selected" else [],
+        "selections": st.session_state.generation_selections,
     }
 
 
@@ -264,17 +247,8 @@ def render_context_preview(payload: dict[str, Any]) -> None:
         st.subheader("Technical Scope")
         st.write(f"**Catalog:** {payload['catalog']}")
         st.write(f"**Schema:** {payload['schema']}")
-        if payload["table_scope"] == "all":
-            st.write("**Tables:** All tables")
-        else:
-            st.write(f"**Tables:** {', '.join(payload['tables'])}")
-        st.caption("Table metadata will be retrieved by the backend context layer.")
-        st.subheader("Payor Scope")
-        if payload["payor_scope"] == "all":
-            st.write("**Payors:** All payors")
-        else:
-            st.write(f"**Payors:** {', '.join(payload['payors'])}")
-        st.caption("Applicable payor configuration will be retrieved by the backend context layer.")
+        st.subheader("Selected Configurations")
+        st.dataframe(payload["selections"], hide_index=True, use_container_width=True)
     with st.expander("Context Request"):
         st.json(payload)
 
@@ -318,38 +292,59 @@ def render_sql_generation_page() -> None:
             available_tables = [table["name"] for table in get_schema_objects(catalog, schema).get("tables", [])]
         except RequestException:
             st.error("Unable to retrieve tables.")
-    st.subheader("Step 4: Select Tables")
-    table_scope_display = st.radio("Target Tables", ("Specific tables", "All tables"), horizontal=True, key="table_scope_control")
-    st.session_state.table_scope = "all" if table_scope_display == "All tables" else "selected"
-    if st.session_state.table_scope == "selected":
-        selected = [table for table in st.session_state.selected_tables if table in available_tables]
-        st.session_state.selected_tables = st.multiselect("Tables", available_tables, default=selected)
-    else:
-        st.session_state.selected_tables = []
-
-    st.subheader("Step 5: Select Payors")
+    st.subheader("Step 4: Add Target Configuration")
     try:
         available_payors = get_payors()
     except RequestException:
         available_payors = []
         st.error("Unable to retrieve payors.")
-    payor_scope_display = st.radio("Payors", ("Specific payors", "All payors"), horizontal=True, key="payor_scope_control")
-    st.session_state.payor_scope = "all" if payor_scope_display == "All payors" else "selected"
-    if st.session_state.payor_scope == "selected":
-        selected = [payor for payor in st.session_state.selected_payors if payor in available_payors]
-        st.session_state.selected_payors = st.multiselect("Payor list", available_payors, default=selected)
-    else:
-        st.session_state.selected_payors = []
+
+    table_column, payor_column, file_type_column = st.columns(3)
+    with table_column:
+        selected_table = _select_option("Target table", available_tables, "Select a table", "generation_table")
+    with payor_column:
+        selected_payor = _select_option("Payor", available_payors, "Select a payor", "generation_payor")
+    file_types: list[str] = []
+    if selected_payor:
+        try:
+            file_types = get_file_types(selected_payor)
+        except RequestException:
+            st.error("Unable to retrieve file types.")
+    with file_type_column:
+        selected_file_type = _select_option("File type", file_types, "Select a file type", "generation_file_type")
+
+    selection = {
+        "table_name": selected_table,
+        "payor": selected_payor,
+        "file_type": selected_file_type,
+    }
+    if st.button("Add configuration", disabled=not all(selection.values())):
+        if selection in st.session_state.generation_selections:
+            st.warning("This target configuration is already selected.")
+        else:
+            st.session_state.generation_selections.append(selection)
+            st.session_state.generated_sql_context = None
+
+    if st.session_state.generation_selections:
+        st.subheader("Configurations to Validate")
+        for index, selected_configuration in enumerate(st.session_state.generation_selections):
+            details, remove = st.columns((6, 1))
+            details.write(
+                f"{selected_configuration['table_name']} | {selected_configuration['payor']} | "
+                f"{selected_configuration['file_type']}"
+            )
+            if remove.button("Remove", key=f"remove_configuration_{index}"):
+                st.session_state.generation_selections.pop(index)
+                st.session_state.generated_sql_context = None
+                st.rerun()
 
     problems: list[str] = []
     if not catalog:
         problems.append("Select a catalog.")
     if not schema:
         problems.append("Select a schema.")
-    if st.session_state.table_scope == "selected" and not st.session_state.selected_tables:
-        problems.append("Select at least one table or choose All Tables.")
-    if st.session_state.payor_scope == "selected" and not st.session_state.selected_payors:
-        problems.append("Select at least one payor or choose All Payors.")
+    if not st.session_state.generation_selections:
+        problems.append("Add at least one target configuration.")
     for problem in problems:
         st.warning(problem)
 
@@ -357,7 +352,6 @@ def render_sql_generation_page() -> None:
         payload = _build_generation_payload()
         render_context_preview(payload)
         if st.button("Generate SQL", type="primary"):
-            st.session_state.generated_sql_context = payload
             generate_sql_context(payload)
 
 

@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api.routes import get_payor_config_service, get_qa_context_service
 from app.main import app
+from app.models.payor_config import PayorConfig
 from app.models.qa_context import QAContext, QAContextRequest, TableContext
 from app.models.test_case import TestCase
 from app.services.qa_context_service import QAContextTestCaseNotFoundError
@@ -13,7 +14,17 @@ class FakeContextService:
             raise QAContextTestCaseNotFoundError(request.test_case_id)
         return QAContext(
             test_case=TestCase(test_case_id=request.test_case_id, pipeline="Silver", component="dates", test_scenario="valid", target_object="table", input_data="data", validation_check="check", expected_result="valid"),
-            tables=[TableContext(catalog=request.catalog, schema=request.schema, table_name=request.table_name or "members", metadata={}, payor_configs=[])],
+            tables=[
+                TableContext(
+                    catalog=request.catalog,
+                    schema=request.schema,
+                    table_name=selection.table_name,
+                    metadata={},
+                    expected_table=selection.table_name,
+                    payor_config=PayorConfig(payor=selection.payor, file_type=selection.file_type),
+                )
+                for selection in request.selections
+            ],
         )
 
 
@@ -21,8 +32,14 @@ def test_qa_context_route_returns_context_and_maps_missing_test_case():
     app.dependency_overrides[get_qa_context_service] = lambda: FakeContextService()
     client = TestClient(app)
     try:
-        response = client.post("/api/qa/context", json={"test_case_id": "TC1", "catalog": "dev", "schema": "poc", "table_name": "members"})
-        missing = client.post("/api/qa/context", json={"test_case_id": "missing", "catalog": "dev", "schema": "poc", "table_name": "members"})
+        payload = {
+            "test_case_id": "TC1",
+            "catalog": "dev",
+            "schema": "poc",
+            "selections": [{"table_name": "members", "payor": "ABC", "file_type": "member"}],
+        }
+        response = client.post("/api/qa/context", json=payload)
+        missing = client.post("/api/qa/context", json={**payload, "test_case_id": "missing"})
     finally:
         app.dependency_overrides.pop(get_qa_context_service, None)
 
@@ -43,3 +60,17 @@ def test_payor_discovery_route_precedes_dynamic_payor_route():
 
     assert response.status_code == 200
     assert response.json() == {"payors": ["ABC", "XYZ"]}
+
+
+def test_file_type_discovery_route_precedes_dynamic_payor_route():
+    app.dependency_overrides[get_payor_config_service] = lambda: type(
+        "Service", (), {"list_file_types": lambda self, payor: ["member", "claims"]}
+    )()
+    client = TestClient(app)
+    try:
+        response = client.get("/api/payor-config/ABC/file-types")
+    finally:
+        app.dependency_overrides.pop(get_payor_config_service, None)
+
+    assert response.status_code == 200
+    assert response.json() == {"file_types": ["member", "claims"]}

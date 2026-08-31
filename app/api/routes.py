@@ -26,8 +26,11 @@ from app.services.payor_config_service import (
     PayorConfigService,
 )
 from app.services.qa_context_service import (
+    QAContextExpectedTableMissingError,
+    QAContextMetadataSnapshotNotFoundError,
+    QAContextMetadataTableNotFoundError,
     QAContextService,
-    QAContextTableNotFoundError,
+    QAContextTableMismatchError,
     QAContextTestCaseNotFoundError,
 )
 from app.services.test_case_service import (
@@ -79,12 +82,12 @@ def get_payor_config_service(
 def get_qa_context_service(
     test_case_service: Annotated[TestCaseService, Depends(get_test_case_service)],
     payor_config_service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
-    databricks_service: Annotated[DatabricksService, Depends(get_databricks_service)],
+    metadata_service: Annotated[MetadataService, Depends(get_metadata_service)],
 ) -> QAContextService:
     return QAContextService(
         test_case_service=test_case_service,
         payor_config_service=payor_config_service,
-        databricks_service=databricks_service,
+        metadata_service=metadata_service,
     )
 
 
@@ -276,14 +279,33 @@ def list_test_cases(
         ) from exc
 
 
-@metadata_router.get("/payor-config/{payor}/{table_name}", response_model=PayorConfig)
-def get_payor_config(
+@metadata_router.get("/payor-config/{payor}/file-types")
+def list_file_types(
     payor: str,
-    table_name: str,
     service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
 ):
     try:
-        return service.get_config(payor=payor, table_name=table_name)
+        return {"file_types": service.list_file_types(payor=payor)}
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list file types.",
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to list file types.",
+        ) from exc
+
+
+@metadata_router.get("/payor-config/{payor}/{file_type}", response_model=PayorConfig)
+def get_payor_config(
+    payor: str,
+    file_type: str,
+    service: Annotated[PayorConfigService, Depends(get_payor_config_service)],
+):
+    try:
+        return service.get_config(payor=payor, file_type=file_type)
     except PayorConfigNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except DuplicatePayorConfigError as exc:
@@ -344,8 +366,14 @@ def build_qa_context(
 ):
     try:
         return service.build_context(request)
-    except (QAContextTestCaseNotFoundError, QAContextTableNotFoundError) as exc:
+    except (QAContextTestCaseNotFoundError, PayorConfigNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DuplicatePayorConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (QAContextExpectedTableMissingError, QAContextTableMismatchError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except (QAContextMetadataSnapshotNotFoundError, QAContextMetadataTableNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - simple API-level handling
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

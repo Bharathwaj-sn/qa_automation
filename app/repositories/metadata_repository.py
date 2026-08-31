@@ -8,6 +8,15 @@ from pathlib import Path
 from app.models.metadata import MetadataCatalog, MetadataSnapshot, MetadataSchema, MetadataTable
 
 
+class MetadataSnapshotNotFoundError(RuntimeError):
+    pass
+
+
+class MetadataTableNotFoundError(RuntimeError):
+    def __init__(self, catalog_name: str, schema_name: str, table_name: str):
+        super().__init__(f"Table '{catalog_name}.{schema_name}.{table_name}' was not found in the metadata snapshot.")
+
+
 class MetadataRepository:
     def __init__(self, file_path: str | Path | None = None):
         base_path = Path(file_path) if file_path else Path(__file__).resolve().parents[2] / "data" / "metadata" / "metadata.json"
@@ -61,9 +70,21 @@ class MetadataRepository:
 
     def _find_table(self, schema: MetadataSchema, table_name: str) -> MetadataTable | None:
         for table in schema.tables:
-            if table.name == table_name:
+            if table.name.casefold() == table_name.casefold():
                 return table
         return None
+
+    def get_table_metadata(self, catalog_name: str, schema_name: str, table_name: str) -> MetadataTable:
+        snapshot = self.load_snapshot()
+        if snapshot is None:
+            raise MetadataSnapshotNotFoundError("No metadata snapshot has been generated yet.")
+
+        catalog = self._find_catalog(snapshot, catalog_name)
+        schema = self._find_schema(catalog, schema_name) if catalog else None
+        table = self._find_table(schema, table_name) if schema else None
+        if table is None:
+            raise MetadataTableNotFoundError(catalog_name, schema_name, table_name)
+        return table
 
     def save_snapshot(self, snapshot: MetadataSnapshot | dict) -> MetadataSnapshot | dict:
         if isinstance(snapshot, MetadataSnapshot):

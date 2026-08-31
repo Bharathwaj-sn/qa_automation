@@ -139,6 +139,9 @@ class MetadataService:
     def get_snapshot(self) -> MetadataSnapshot | None:
         return self.repository.load_snapshot()
 
+    def get_table_metadata(self, catalog_name: str, schema_name: str, table_name: str) -> MetadataTable:
+        return self.repository.get_table_metadata(catalog_name, schema_name, table_name)
+
     def get_summary(self) -> MetadataSummary | None:
         snapshot = self.repository.load_snapshot()
         if not snapshot:

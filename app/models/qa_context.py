@@ -2,25 +2,29 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.payor_config import PayorConfig
 from app.models.test_case import TestCase
+
+
+class QAContextSelection(BaseModel):
+    table_name: str
+    payor: str
+    file_type: str
 
 
 class QAContextRequest(BaseModel):
     test_case_id: str
     catalog: str
     schema: str
-    table_name: str | None = None
-    include_all_tables: bool = False
+    selections: list[QAContextSelection] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def validate_table_scope(self):
-        if self.table_name and self.include_all_tables:
-            raise ValueError("table_name and include_all_tables cannot both be supplied.")
-        if not self.table_name and not self.include_all_tables:
-            raise ValueError("Specify table_name or set include_all_tables to true.")
+    def validate_unique_selections(self):
+        identities = [(selection.table_name, selection.payor, selection.file_type) for selection in self.selections]
+        if len(identities) != len(set(identities)):
+            raise ValueError("selections must not contain duplicate table, payor, and file type combinations.")
         return self
 
 
@@ -29,7 +33,8 @@ class TableContext(BaseModel):
     schema: str
     table_name: str
     metadata: dict[str, Any]
-    payor_configs: list[PayorConfig]
+    expected_table: str
+    payor_config: PayorConfig
 
 
 class QAContext(BaseModel):
