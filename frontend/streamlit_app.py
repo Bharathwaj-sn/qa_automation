@@ -55,9 +55,30 @@ def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
-    """Reserved for POST /api/sql/generate when that backend endpoint is available."""
-    st.info("SQL generation API is not available yet.")
-    st.json(payload)
+    request_base = {
+        "test_case_id": payload["test_case_id"],
+        "catalog": payload["catalog"],
+        "schema": payload["schema"],
+    }
+    try:
+        if payload["table_scope"] == "all":
+            context = _post("/api/qa/context", {**request_base, "include_all_tables": True})
+        else:
+            table_contexts = [
+                _post("/api/qa/context", {**request_base, "table_name": table_name})
+                for table_name in payload["tables"]
+            ]
+            context = {
+                "test_case": table_contexts[0]["test_case"],
+                "tables": [table for response in table_contexts for table in response["tables"]],
+            }
+    except RequestException as error:
+        st.error(_response_detail(error) or "Unable to build QA context.")
+        return
+
+    st.session_state.generated_sql_context = context
+    st.success("QA context generated.")
+    st.json(context)
 
 
 def _response_detail(error: RequestException) -> str | None:
