@@ -140,8 +140,9 @@ def _sql_generation_message(qa_context: QAContext) -> str:
         "expected_result as the requirement. "
         f"2. For each target, query {payor_config_identifier} where payor and file_type match the listed values. "
         f"3. Validate only these target tables: {targets}. "
-        "4. Verify referenced columns using target metadata and do not invent validation logic. "
-        "5. Return only the final validation SQL; do not execute it."
+        "4. Use metadata to verify columns; you may execute read-only intermediate lookup and sample queries, then reason over their results. "
+        "5. Generate the final validation SQL without inventing validation logic. "
+        "6. You may execute the final validation SQL to validate it, but return only that SQL."
     )
 
 

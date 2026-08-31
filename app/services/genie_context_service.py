@@ -108,25 +108,21 @@ class GenieContextService:
                 GenieTextInstruction(
                     id=self._genie_id(),
                     content=[
-                        "Generate validation SQL only. Do not execute SQL.",
+                        "Generate validation SQL by following this numbered workflow.",
                         (
-                            f"First query {test_case_identifier} for test case "
+                            f"1. Query {test_case_identifier} where test_case_id is "
                             f"{qa_context.test_case.test_case_id}."
                         ),
-                        "Inspect test_case_id, test_scenario, validation_check, and expected_result.",
-                        "Treat validation_check and expected_result as the source of truth for the validation requirement.",
+                        "2. Inspect test_case_id, test_scenario, validation_check, and expected_result; treat validation_check and expected_result as the source of truth.",
                         (
-                            f"For each target, query {payor_config_identifier} using its payor and file type "
+                            f"3. For each target, query {payor_config_identifier} using its payor and file type "
                             "before generating validation SQL."
                         ),
                         *target_context,
-                        "Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables.",
-                        "Process each target independently with its corresponding payor and file type configuration.",
-                        "Use target metadata to verify referenced tables and columns exist; inspect a small sample only when needed.",
-                        "Translate the specific test-case requirement into validation SQL for the applicable target table.",
-                        "Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name.",
-                        "Do not generate SQL for unrelated tables available in the Genie space.",
-                        "Return only the final validation SQL.",
+                        "4. Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables. Process each target independently with its corresponding configuration.",
+                        "5. Use target metadata to verify referenced tables and columns. You may execute read-only intermediate queries, including test-case lookups, payor-configuration lookups, and small target-table samples, then reason over their results.",
+                        "6. Translate the specific test-case requirement into validation SQL for the applicable target table. Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name.",
+                        "7. Do not generate SQL for unrelated tables. You may execute the final validation SQL to validate it, but return only the final validation SQL.",
                     ],
                 )
             ],
@@ -162,7 +158,8 @@ class GenieContextService:
                             (
                                 f"Generate validation SQL for test case {qa_context.test_case.test_case_id} by first "
                                 "reading the test case, then resolving the applicable payor configuration, then validating "
-                                "the specified target table. Return only the validation SQL."
+                                "the specified target table. You may execute read-only intermediate queries and reason over "
+                                "their results. You may execute the final validation SQL to validate it, but return only the final validation SQL."
                             )
                         ],
                     )

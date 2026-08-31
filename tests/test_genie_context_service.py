@@ -111,10 +111,9 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
     ).build_context(make_qa_context(demographic, claims))
 
     instruction = space.instructions.text_instructions[0].content
-    assert "Generate validation SQL only. Do not execute SQL." in instruction
+    assert "Generate validation SQL by following this numbered workflow." in instruction
     assert any("dev_adls_lakehouse.testing_poc.test_cases" in value and "TC000002" in value for value in instruction)
-    assert "Inspect test_case_id, test_scenario, validation_check, and expected_result." in instruction
-    assert "Treat validation_check and expected_result as the source of truth for the validation requirement." in instruction
+    assert any(value.startswith("2. Inspect test_case_id") for value in instruction)
     assert any("dev_adls_lakehouse.util.payor_config" in value and "payor and file type" in value for value in instruction)
     assert any(
         "advent" in value
@@ -122,15 +121,16 @@ def test_build_context_adds_multiple_target_tables_and_procedural_instructions_a
         and "dev_adls_lakehouse.util.payor_config" in value
         for value in instruction
     )
-    assert "Only validate the target table or tables specified above; test case and payor configuration tables are lookup tables." in instruction
-    assert "Use target metadata to verify referenced tables and columns exist; inspect a small sample only when needed." in instruction
-    assert "Do not invent columns, values, business rules, or validation logic, and do not infer a rule solely from a column name." in instruction
-    assert "Return only the final validation SQL." in instruction
+    assert any(value.startswith("4. Only validate the target table") for value in instruction)
+    assert any("You may execute read-only intermediate queries" in value for value in instruction)
+    assert any(value.startswith("6. Translate the specific test-case") for value in instruction)
+    assert any(value.startswith("7. Do not generate SQL for unrelated tables") for value in instruction)
     sample_question = space.config.sample_questions[0].question[0]
     assert "TC000002" in sample_question
     assert "first reading the test case" in sample_question
     assert "resolving the applicable payor configuration" in sample_question
-    assert "Return only the validation SQL." in sample_question
+    assert "You may execute read-only intermediate queries" in sample_question
+    assert "You may execute the final validation SQL to validate it, but return only the final validation SQL." in sample_question
     assert [example.sql[0] for example in space.instructions.example_question_sqls] == [
         "SELECT * FROM dev_adls_lakehouse.silver.advent_demographic LIMIT 5",
         "SELECT * FROM dev_adls_lakehouse.silver.advent_medicalclaim LIMIT 5",
