@@ -45,7 +45,7 @@ class TestCaseService:
                     statement=sql,
                     warehouse_id=self.settings.databricks_warehouse_id or "",
                     catalog=self.settings.databricks_catalog,
-                    schema=self.settings.databricks_schema,
+                    schema_name=self.settings.databricks_schema,
                 )
             )
 
@@ -112,7 +112,7 @@ VALUES
                     statement=statement,
                     warehouse_id=self.settings.databricks_warehouse_id or "",
                     catalog=self.settings.databricks_catalog,
-                    schema=self.settings.databricks_schema,
+                    schema_name=self.settings.databricks_schema,
                     parameters=[
                         SQLParameter(name="test_case_id", value=test_case_id),
                         SQLParameter(name="pipeline", value=test_case.pipeline),
@@ -172,7 +172,7 @@ WHERE test_case_id = :test_case_id
                     statement=statement,
                     warehouse_id=self.settings.databricks_warehouse_id or "",
                     catalog=self.settings.databricks_catalog,
-                    schema=self.settings.databricks_schema,
+                    schema_name=self.settings.databricks_schema,
                     parameters=[SQLParameter(name="test_case_id", value=test_case_id)],
                 )
             )
@@ -223,7 +223,7 @@ ORDER BY test_case_id
                     statement=statement,
                     warehouse_id=self.settings.databricks_warehouse_id or "",
                     catalog=self.settings.databricks_catalog,
-                    schema=self.settings.databricks_schema,
+                    schema_name=self.settings.databricks_schema,
                 )
             )
         except DatabricksSQLExecutionError:
@@ -281,6 +281,6 @@ USING DELTA
                 statement=create_table_sql,
                 warehouse_id=settings.databricks_warehouse_id or "",
                 catalog=settings.databricks_catalog,
-                schema=settings.databricks_schema,
+                schema_name=settings.databricks_schema,
             )
         )

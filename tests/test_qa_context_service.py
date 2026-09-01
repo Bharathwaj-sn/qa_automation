@@ -82,7 +82,7 @@ def test_build_context_for_a_table_includes_metadata_and_matching_configs():
         QAContextRequest(
             test_case_id="TC000073",
             catalog="dev",
-            schema="poc",
+            schema_name="poc",
             selections=[QAContextSelection(table_name="silver_member", payor="ABC", file_type="member")],
         )
     )
@@ -104,7 +104,7 @@ def test_context_rejects_selected_table_that_does_not_match_configured_expected_
             QAContextRequest(
                 test_case_id="TC000073",
                 catalog="dev",
-                schema="poc",
+                schema_name="poc",
                 selections=[QAContextSelection(table_name="members", payor="ABC", file_type="member")],
             )
         )
@@ -116,22 +116,22 @@ def test_context_converts_missing_test_case_and_metadata_table_errors():
 
     with pytest.raises(QAContextTestCaseNotFoundError):
         make_service(test_case_missing=True, configs=config).build_context(
-            QAContextRequest(test_case_id="missing", catalog="dev", schema="poc", selections=[selection])
+            QAContextRequest(test_case_id="missing", catalog="dev", schema_name="poc", selections=[selection])
         )
     with pytest.raises(QAContextMetadataTableNotFoundError):
         make_service(table_names=(), configs=config).build_context(
-            QAContextRequest(test_case_id="TC000073", catalog="dev", schema="poc", selections=[selection])
+            QAContextRequest(test_case_id="TC000073", catalog="dev", schema_name="poc", selections=[selection])
         )
 
 
 def test_context_request_rejects_empty_or_duplicate_selections():
     with pytest.raises(ValueError):
-        QAContextRequest(test_case_id="TC000073", catalog="dev", schema="poc", selections=[])
+        QAContextRequest(test_case_id="TC000073", catalog="dev", schema_name="poc", selections=[])
     with pytest.raises(ValueError):
         QAContextRequest(
             test_case_id="TC000073",
             catalog="dev",
-            schema="poc",
+            schema_name="poc",
             selections=[
                 QAContextSelection(table_name="members", payor="ABC", file_type="member"),
                 QAContextSelection(table_name="members", payor="ABC", file_type="member"),

@@ -46,7 +46,7 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :g
                 """.strip(),
                 warehouse_id=self.settings.databricks_warehouse_id or "",
                 catalog=self.settings.validation_sql_catalog,
-                schema=self.settings.validation_sql_schema,
+                schema_name=self.settings.validation_sql_schema,
                 parameters=self._parameters(
                     validation_sql_id=validation_sql_id,
                     **validation_sql.model_dump(),
@@ -75,7 +75,7 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :g
                 statement=f"{statement} ORDER BY created_at DESC",
                 warehouse_id=self.settings.databricks_warehouse_id or "",
                 catalog=self.settings.validation_sql_catalog,
-                schema=self.settings.validation_sql_schema,
+                schema_name=self.settings.validation_sql_schema,
                 parameters=parameters,
             )
         )
@@ -99,7 +99,7 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :g
                 statement=saved_sql.generated_sql,
                 warehouse_id=self.settings.databricks_warehouse_id or "",
                 catalog=self.settings.databricks_catalog,
-                schema=self.settings.databricks_schema,
+                schema_name=self.settings.databricks_schema,
             )
         )
         return self._save_result(saved_sql, execution)
@@ -128,7 +128,7 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :s
                 """.strip(),
                 warehouse_id=self.settings.databricks_warehouse_id or "",
                 catalog=self.settings.databricks_catalog,
-                schema=self.settings.databricks_schema,
+                schema_name=self.settings.databricks_schema,
                 parameters=self._parameters(
                     validation_sql_id=result.validation_sql_id,
                     test_case_id=result.test_case_id,
@@ -178,7 +178,7 @@ USING DELTA
                 """.strip(),
                 warehouse_id=settings.databricks_warehouse_id or "",
                 catalog=settings.validation_sql_catalog,
-                schema=settings.validation_sql_schema,
+                schema_name=settings.validation_sql_schema,
             )
         )
         try:
@@ -187,7 +187,7 @@ USING DELTA
                     statement=f"ALTER TABLE {table_name} ADD COLUMNS (validation_sql_id STRING)",
                     warehouse_id=settings.databricks_warehouse_id or "",
                     catalog=settings.validation_sql_catalog,
-                    schema=settings.validation_sql_schema,
+                    schema_name=settings.validation_sql_schema,
                 )
             )
         except DatabricksSQLExecutionError as exc:
@@ -222,6 +222,6 @@ USING DELTA
                 """.strip(),
                 warehouse_id=settings.databricks_warehouse_id or "",
                 catalog=settings.test_case_results_catalog,
-                schema=settings.test_case_results_schema,
+                schema_name=settings.test_case_results_schema,
             )
         )

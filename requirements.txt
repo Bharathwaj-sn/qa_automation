@@ -4,6 +4,3 @@ databricks-sdk==0.133.0
 pydantic==2.13.4
 streamlit==1.47.1
 requests==2.32.4
-openai==3.3.1
-litellm
-litellm==1.81.9

@@ -12,7 +12,7 @@ def sql_generation_message(qa_context: QAContext) -> str:
         f"{settings.payor_config_catalog}.{settings.payor_config_schema}.{settings.payor_config_table_name}"
     )
     targets = "; ".join(
-        f"{table.catalog}.{table.schema}.{table.table_name} ({table.payor_config.payor}/{table.payor_config.file_type})"
+        f"{table.catalog}.{table.schema_name}.{table.table_name} ({table.payor_config.payor}/{table.payor_config.file_type})"
         for table in qa_context.tables
     )
     return (

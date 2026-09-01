@@ -50,7 +50,7 @@ def make_qa_context(*target_tables):
         tables=[
             TableContext(
                 catalog="dev_adls_lakehouse",
-                schema="silver",
+                schema_name="silver",
                 table_name=table.name,
                 metadata=table.model_dump(mode="json"),
                 expected_table=table.name,

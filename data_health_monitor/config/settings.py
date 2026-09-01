@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     app_log_max_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
     app_log_backup_count: int = Field(default=5, ge=0)
     databricks_profile: str | None = None
-    databricks_serving_model: str | None = None
     databricks_catalog: str = "main"
     databricks_schema: str = "qa"
     databricks_warehouse_id: str | None = None
@@ -29,9 +28,6 @@ class Settings(BaseSettings):
     test_case_results_table_name: str = "test_case_results"
     genie_space_id: str | None = None
     genie_space_title: str | None = None
-    litellm_model: str | None = None
-    litellm_api_base: str | None = None
-    litellm_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

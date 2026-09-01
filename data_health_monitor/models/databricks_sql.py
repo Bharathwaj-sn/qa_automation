@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SQLParameter(BaseModel):
@@ -10,10 +10,12 @@ class SQLParameter(BaseModel):
 
 
 class SQLExecutionRequest(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True)
+
     statement: str
     warehouse_id: str
     catalog: str | None = None
-    schema: str | None = None
+    schema_name: str | None = Field(default=None, alias="schema")
     parameters: list[SQLParameter] = Field(default_factory=list)
     wait_timeout: str = "30s"
 

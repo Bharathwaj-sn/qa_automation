@@ -27,7 +27,7 @@ class FakeContextService:
             tables=[
                 TableContext(
                     catalog=request.catalog,
-                    schema=request.schema,
+                    schema_name=request.schema_name,
                     table_name=selection.table_name,
                     metadata={},
                     expected_table=selection.table_name,
@@ -55,6 +55,7 @@ def test_qa_context_route_returns_context_and_maps_missing_test_case():
 
     assert response.status_code == 200
     assert response.json()["tables"][0]["table_name"] == "members"
+    assert response.json()["tables"][0]["schema"] == "poc"
     assert missing.status_code == 404
 
 

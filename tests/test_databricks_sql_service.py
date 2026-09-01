@@ -113,7 +113,7 @@ def test_catalog_and_schema_are_passed_to_statement_execution():
             statement="SELECT * FROM test_cases",
             warehouse_id="wh-abc",
             catalog="main",
-            schema="qa",
+            schema_name="qa",
         )
     )
 

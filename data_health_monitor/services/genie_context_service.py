@@ -80,7 +80,7 @@ class GenieContextService:
             return MetadataTable.model_validate(table_context.metadata)
         except ValueError as exc:
             raise GenieContextError(
-                f"Target table '{table_context.catalog}.{table_context.schema}.{table_context.table_name}' has invalid metadata."
+                f"Target table '{table_context.catalog}.{table_context.schema_name}.{table_context.table_name}' has invalid metadata."
             ) from exc
 
     def _instructions(self, qa_context: QAContext) -> GenieInstructions:
@@ -96,7 +96,7 @@ class GenieContextService:
         )
         target_context = [
             (
-                f"For target table {self._identifier(table.catalog, table.schema, table.table_name)}, query "
+                f"For target table {self._identifier(table.catalog, table.schema_name, table.table_name)}, query "
                 f"{payor_config_identifier} where payor is {table.payor_config.payor} and file type is "
                 f"{table.payor_config.file_type}; validate only this target using that configuration."
             )

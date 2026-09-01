@@ -120,7 +120,7 @@ class DatabricksSQLService:
                 statement=request.statement,
                 warehouse_id=request.warehouse_id,
                 catalog=request.catalog,
-                schema=request.schema,
+                schema=request.schema_name,
                 parameters=self._parameter_payload(request.parameters),
                 wait_timeout=request.wait_timeout,
             )

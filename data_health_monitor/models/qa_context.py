@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from data_health_monitor.models.payor_config import PayorConfig
 from data_health_monitor.models.test_case import TestCase
@@ -15,9 +15,11 @@ class QAContextSelection(BaseModel):
 
 
 class QAContextRequest(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True)
+
     test_case_id: str
     catalog: str
-    schema: str
+    schema_name: str = Field(alias="schema")
     selections: list[QAContextSelection] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -29,8 +31,10 @@ class QAContextRequest(BaseModel):
 
 
 class TableContext(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True)
+
     catalog: str
-    schema: str
+    schema_name: str = Field(alias="schema")
     table_name: str
     metadata: dict[str, Any]
     expected_table: str

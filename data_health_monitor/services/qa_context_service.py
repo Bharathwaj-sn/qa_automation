@@ -80,7 +80,7 @@ class QAContextService:
             try:
                 metadata = self.metadata_service.get_table_metadata(
                     catalog_name=request.catalog,
-                    schema_name=request.schema,
+                    schema_name=request.schema_name,
                     table_name=selection.table_name,
                 )
             except MetadataSnapshotNotFoundError as exc:
@@ -88,14 +88,14 @@ class QAContextService:
             except MetadataTableNotFoundError as exc:
                 raise QAContextMetadataTableNotFoundError(
                     request.catalog,
-                    request.schema,
+                    request.schema_name,
                     selection.table_name,
                 ) from exc
 
             table_contexts.append(
                 TableContext(
                     catalog=request.catalog,
-                    schema=request.schema,
+                    schema_name=request.schema_name,
                     table_name=metadata.name,
                     metadata=metadata.model_dump(mode="json"),
                     expected_table=expected_table,

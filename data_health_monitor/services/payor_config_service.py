@@ -110,7 +110,7 @@ delimited_text_file"""
             statement=statement,
             warehouse_id=self.settings.databricks_warehouse_id or "",
             catalog=self.settings.payor_config_catalog,
-            schema=self.settings.payor_config_schema,
+            schema_name=self.settings.payor_config_schema,
             parameters=parameters,
         )
 
