@@ -53,7 +53,7 @@ def test_validation_failures_do_not_log_request_payloads(log_file: Path):
     secret_value = "do-not-log-this-request-value"
 
     response = client.post(
-        "/api/metadata/refresh",
+        "/api/v1/metadata/refresh",
         json={"scope_type": "table", "catalog_name": secret_value},
     )
 

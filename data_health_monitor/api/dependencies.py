@@ -6,13 +6,11 @@ from fastapi import Depends, Request
 
 from data_health_monitor.config import get_settings
 from data_health_monitor.repositories.metadata_repository import MetadataRepository
-from data_health_monitor.services.databricks_model_serving_service import DatabricksModelServingService
 from data_health_monitor.services.databricks_service import DatabricksService
 from data_health_monitor.services.databricks_sql_service import DatabricksSQLService
 from data_health_monitor.services.genie_context_service import GenieContextService
 from data_health_monitor.services.genie_service import GenieService
 from data_health_monitor.services.genie_space_coordinator import GenieSpaceCoordinator
-from data_health_monitor.services.litellm_service import LiteLLMService
 from data_health_monitor.services.metadata_service import MetadataService
 from data_health_monitor.services.payor_config_service import PayorConfigService
 from data_health_monitor.services.qa_context_service import QAContextService
@@ -32,14 +30,6 @@ def get_metadata_service(
 
 def get_sql_service() -> DatabricksSQLService:
     return DatabricksSQLService(settings=get_settings())
-
-
-def get_litellm_service() -> LiteLLMService:
-    return LiteLLMService(settings=get_settings())
-
-
-def get_databricks_model_serving_service() -> DatabricksModelServingService:
-    return DatabricksModelServingService(settings=get_settings())
 
 
 def get_test_case_service(

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.routes import (
+from data_health_monitor.api.dependencies import (
     get_genie_space_coordinator,
     get_test_case_service,
     get_validation_sql_service,
@@ -36,7 +36,7 @@ def test_expected_not_found_error_preserves_response_and_logs_request(log_file: 
 
     app.dependency_overrides[get_test_case_service] = lambda: MissingTestCaseService()
     try:
-        response = TestClient(app).get("/api/test-cases/missing")
+        response = TestClient(app).get("/api/v1/test-cases/missing")
     finally:
         app.dependency_overrides.pop(get_test_case_service, None)
 
@@ -56,7 +56,7 @@ def test_upstream_error_preserves_response_and_logs_without_raw_error(log_file: 
     app.dependency_overrides[get_validation_sql_service] = lambda: FailingValidationSQLService()
     try:
         response = TestClient(app).post(
-            "/api/qa/validation-sql",
+            "/api/v1/qa/validation-sql",
             json={
                 "test_case_id": "TC1",
                 "target_table": "main.qa.members",
@@ -86,7 +86,7 @@ def test_unexpected_error_returns_generic_response_and_sanitized_traceback(log_f
 
     app.dependency_overrides[get_genie_space_coordinator] = lambda: FailingGenieSpaceCoordinator()
     try:
-        response = TestClient(app, raise_server_exceptions=False).get("/api/genie-space/status")
+        response = TestClient(app, raise_server_exceptions=False).get("/api/v1/genie-space/status")
     finally:
         app.dependency_overrides.pop(get_genie_space_coordinator, None)
 

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.routes import (
+from data_health_monitor.api.dependencies import (
     get_genie_context_service,
     get_genie_space_coordinator,
     get_payor_config_service,
@@ -48,8 +48,8 @@ def test_qa_context_route_returns_context_and_maps_missing_test_case():
             "schema": "poc",
             "selections": [{"table_name": "members", "payor": "ABC", "file_type": "member"}],
         }
-        response = client.post("/api/qa/context", json=payload)
-        missing = client.post("/api/qa/context", json={**payload, "test_case_id": "missing"})
+        response = client.post("/api/v1/qa/context", json=payload)
+        missing = client.post("/api/v1/qa/context", json={**payload, "test_case_id": "missing"})
     finally:
         app.dependency_overrides.pop(get_qa_context_service, None)
 
@@ -75,7 +75,7 @@ def test_test_case_create_route_returns_the_created_test_case():
         "expected_result": "No missing member IDs",
     }
     try:
-        response = client.post("/api/test-cases", json=payload)
+        response = client.post("/api/v1/test-cases", json=payload)
     finally:
         app.dependency_overrides.pop(get_test_case_service, None)
 
@@ -90,7 +90,7 @@ def test_payor_discovery_route_precedes_dynamic_payor_route():
     )()
     client = TestClient(app)
     try:
-        response = client.get("/api/payor-config/payors")
+        response = client.get("/api/v1/payor-config/payors")
     finally:
         app.dependency_overrides.pop(get_payor_config_service, None)
 
@@ -104,7 +104,7 @@ def test_file_type_discovery_route_precedes_dynamic_payor_route():
     )()
     client = TestClient(app)
     try:
-        response = client.get("/api/payor-config/ABC/file-types")
+        response = client.post("/api/v1/payor-config/file-types:lookup", json={"payor": "ABC"})
     finally:
         app.dependency_overrides.pop(get_payor_config_service, None)
 
@@ -125,7 +125,7 @@ def test_genie_context_route_builds_qa_context_before_generating_serialized_spac
     client = TestClient(app)
     try:
         response = client.post(
-            "/api/qa/genie-context",
+            "/api/v1/qa/genie-context",
             json={
                 "test_case_id": "TC1",
                 "catalog": "dev",
@@ -165,7 +165,7 @@ def test_genie_space_route_applies_context_then_generates_sql():
     client = TestClient(app)
     try:
         response = client.post(
-            "/api/qa/genie-space",
+            "/api/v1/qa/genie-space",
             json={
                 "test_case_id": "TC1",
                 "catalog": "dev",
@@ -216,7 +216,7 @@ def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response(
     client = TestClient(app)
     try:
         response = client.post(
-            "/api/qa/genie-space",
+            "/api/v1/qa/genie-space",
             json={
                 "test_case_id": "TC1",
                 "catalog": "dev",
@@ -230,9 +230,7 @@ def test_genie_space_route_includes_the_raw_sdk_error_in_a_bad_gateway_response(
         app.dependency_overrides.pop(get_genie_space_coordinator, None)
 
     assert response.status_code == 502
-    assert response.json()["detail"] == (
-        "Unable to create Genie space. Raw error: Databricks rejected the warehouse ID"
-    )
+    assert response.json()["detail"] == "Unable to create Genie space."
 
 
 def test_genie_conversation_route_continues_the_existing_conversation():
@@ -252,7 +250,7 @@ def test_genie_conversation_route_continues_the_existing_conversation():
     client = TestClient(app)
     try:
         response = client.post(
-            "/api/qa/genie/conversations/conversation-1/messages",
+            "/api/v1/qa/genie/conversations/conversation-1/messages",
             json={"content": "Check duplicate health_plan_id values."},
         )
     finally:
@@ -288,7 +286,7 @@ def test_validation_sql_route_saves_the_finalized_sql():
         "message_id": "message-2",
     }
     try:
-        response = client.post("/api/qa/validation-sql", json=payload)
+        response = client.post("/api/v1/qa/validation-sql", json=payload)
     finally:
         app.dependency_overrides.pop(get_validation_sql_service, None)
 
@@ -317,7 +315,7 @@ def test_validation_sql_execution_route_executes_a_saved_statement():
     app.dependency_overrides[get_validation_sql_service] = lambda: FakeValidationSQLService()
     client = TestClient(app)
     try:
-        response = client.post("/api/qa/validation-sql/validation-1/execute")
+        response = client.post("/api/v1/qa/validation-sql/validation-1:execute")
     finally:
         app.dependency_overrides.pop(get_validation_sql_service, None)
 

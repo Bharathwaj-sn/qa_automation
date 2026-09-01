@@ -6,7 +6,6 @@ from fastapi import FastAPI
 
 from data_health_monitor.api.exception_handlers import register_exception_handlers
 from data_health_monitor.api.observability import register_request_observability
-from data_health_monitor.api.routes import metadata_router, router
 from data_health_monitor.api.v1.router import router as v1_router
 from data_health_monitor.config import get_settings
 from data_health_monitor.core.logging import configure_logging, get_logger, log_event
@@ -46,8 +45,6 @@ app = FastAPI(
 )
 register_request_observability(app)
 register_exception_handlers(app)
-app.include_router(router)
-app.include_router(metadata_router)
 app.include_router(v1_router)
 
 

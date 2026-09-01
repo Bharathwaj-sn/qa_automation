@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.routes import get_databricks_service
+from data_health_monitor.api.dependencies import get_databricks_service
 from data_health_monitor.main import app
 from data_health_monitor.models.metadata import MetadataRefreshRequest
 from data_health_monitor.repositories.metadata_repository import MetadataRepository
@@ -39,25 +39,30 @@ class FakeDatabricksService:
         }
 
 
-app.dependency_overrides[get_databricks_service] = lambda: FakeDatabricksService()
-client = TestClient(app)
+@pytest.fixture
+def client():
+    app.dependency_overrides[get_databricks_service] = lambda: FakeDatabricksService()
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_databricks_service, None)
 
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
 
 
-def test_catalogs_endpoint():
-    response = client.get("/api/databricks/catalogs")
+def test_catalogs_endpoint(client):
+    response = client.get("/api/v1/databricks/catalogs")
     assert response.status_code == 200
     assert response.json() == {"catalogs": [{"name": "main"}, {"name": "sandbox"}]}
 
 
-def test_metadata_refresh_and_summary_endpoints():
+def test_metadata_refresh_and_summary_endpoints(client):
     response = client.post(
-        "/api/metadata/refresh",
+        "/api/v1/metadata/refresh",
         json={"scope_type": "schema", "catalog_name": "main", "schema_name": "sales"},
     )
     assert response.status_code == 200, response.text
@@ -67,13 +72,13 @@ def test_metadata_refresh_and_summary_endpoints():
     assert payload["refresh"]["scope"]["catalog_name"] == "main"
     assert payload["refresh"]["scope"]["schema_name"] == "sales"
 
-    summary = client.get("/api/metadata/summary")
+    summary = client.get("/api/v1/metadata/summary")
     assert summary.status_code == 200, summary.text
     summary_json = summary.json()
     assert summary_json["scope_type"] == "schema"
     assert summary_json["catalog_name"] == "main"
 
-    saved = client.get("/api/metadata")
+    saved = client.get("/api/v1/metadata")
     assert saved.status_code == 200, saved.text
     assert saved.json()["refresh"]["scope"]["schema_name"] == "sales"
 

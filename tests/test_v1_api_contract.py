@@ -54,14 +54,13 @@ V1_JSON_BODY_OPERATIONS = {
 
 def test_v1_openapi_exposes_only_the_versioned_contract():
     schema = app.openapi()
-    v1_operations = {
+    operations = {
         path: {
             method
             for method in path_item
             if method in {"get", "post", "put", "patch", "delete"}
         }
         for path, path_item in schema["paths"].items()
-        if path.startswith("/api/v1/")
     }
     v1_body_operations = {
         (path, method)
@@ -71,11 +70,12 @@ def test_v1_openapi_exposes_only_the_versioned_contract():
         if "requestBody" in operation
     }
 
-    assert v1_operations == EXPECTED_V1_OPERATIONS
+    assert operations == {"/health": {"get"}, **EXPECTED_V1_OPERATIONS}
     assert v1_body_operations == V1_JSON_BODY_OPERATIONS
-    assert not any("{catalog_name}" in path or "{schema_name}" in path for path in v1_operations)
-    assert not any(path.startswith("/api/v1/llm/") for path in v1_operations)
-    assert not any(path.startswith("/api/v1/model-serving/") for path in v1_operations)
+    assert not any("{catalog_name}" in path or "{schema_name}" in path for path in operations)
+    assert not any(path.startswith("/api/") and not path.startswith("/api/v1/") for path in operations)
+    assert not any(path.startswith("/api/v1/llm/") for path in operations)
+    assert not any(path.startswith("/api/v1/model-serving/") for path in operations)
 
 
 def test_v1_schema_lookup_reads_the_catalog_from_the_request_body():
