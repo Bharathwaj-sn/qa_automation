@@ -1,4 +1,4 @@
-# QA Automation API
+# Data Health Monitor API
 
 Minimal FastAPI + Streamlit POC for Databricks Unity Catalog metadata inspection.
 
@@ -16,7 +16,7 @@ Minimal FastAPI + Streamlit POC for Databricks Unity Catalog metadata inspection
 From the project root:
 
 ```powershell
-conda activate qa_auto
+conda activate data_health_monitor
 ```
 
 ### 2. Install dependencies
@@ -54,13 +54,29 @@ w = WorkspaceClient()
 Open Terminal 1 in the project root and run:
 
 ```powershell
-uvicorn app.main:app --reload
+uvicorn data_health_monitor.main:app --reload
 ```
 
 Backend URLs:
 
 - http://127.0.0.1:8000/health
 - http://127.0.0.1:8000/docs
+
+## Application logging
+
+Data Health Monitor emits structured JSON logs to stdout and a rotating local file.
+Configure the log level, file location, rotation size, and retained archives with
+these environment variables:
+
+```env
+APP_LOG_LEVEL=INFO
+APP_LOG_FILE=logs/data_health_monitor.log
+APP_LOG_MAX_BYTES=10485760
+APP_LOG_BACKUP_COUNT=5
+```
+
+The default configuration retains the active log and five archives of up to 10 MiB
+each. Local logs are written under `logs/`, which is excluded from source control.
 
 ## LLM configuration
 
@@ -99,13 +115,31 @@ Frontend URL:
 
 ## API endpoints
 
+Streamlit uses `/api/v1`. The earlier `/api` contract remains active only for
+temporary compatibility and is protected by an executable OpenAPI contract test.
+
+V1 keeps stable resource IDs in URL paths. Catalog, schema, table, payor, file
+type, and search filters are validated JSON request bodies on explicit `POST`
+action endpoints. It does not use request bodies with `GET` operations.
+
 - GET /health
-- GET /api/databricks/catalogs
-- GET /api/databricks/catalogs/{catalog_name}/schemas
-- GET /api/databricks/catalogs/{catalog_name}/schemas/{schema_name}/objects
-- GET /api/databricks/catalogs/{catalog_name}/schemas/{schema_name}/tables/{table_name}
-- POST /api/llm/chat
-- POST /api/model-serving/predict
+- GET /api/v1/databricks/catalogs
+- POST /api/v1/databricks/schemas:lookup
+- POST /api/v1/databricks/schema-objects:lookup
+- POST /api/v1/databricks/tables:lookup
+- GET /api/v1/test-cases
+- POST /api/v1/test-cases
+- GET /api/v1/test-cases/{test_case_id}
+- GET /api/v1/payor-config/payors
+- POST /api/v1/payor-config/file-types:lookup
+- POST /api/v1/payor-config:lookup
+- POST /api/v1/payor-config:search
+- POST /api/v1/qa/validation-sql:search
+- POST /api/v1/qa/validation-sql/{validation_sql_id}:execute
+
+The full contract, including metadata and Genie operations, is available at
+http://127.0.0.1:8000/docs. `POST /api/llm/chat` and
+`POST /api/model-serving/predict` are legacy-only and are not used by Streamlit.
 
 ## LLM configuration
 

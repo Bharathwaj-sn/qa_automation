@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from data_health_monitor.main import app
 
 
 def test_openapi_includes_payor_config_endpoints():

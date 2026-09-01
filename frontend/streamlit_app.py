@@ -8,6 +8,7 @@ import streamlit as st
 from requests import RequestException
 
 API_BASE_URL = "http://127.0.0.1:8000"
+API_V1_PREFIX = "/api/v1"
 REQUEST_TIMEOUT = 30
 GENIE_REQUEST_TIMEOUT = 20 * 60 + 30
 
@@ -25,51 +26,63 @@ def _post(path: str, payload: dict[str, Any], timeout: int = REQUEST_TIMEOUT) ->
 
 
 def get_catalogs() -> list[dict[str, Any]]:
-    return _get("/api/databricks/catalogs").get("catalogs", [])
+    return _get(f"{API_V1_PREFIX}/databricks/catalogs").get("catalogs", [])
 
 
 def get_schemas(catalog: str) -> list[dict[str, Any]]:
-    return _get(f"/api/databricks/catalogs/{catalog}/schemas").get("schemas", [])
+    return _post(
+        f"{API_V1_PREFIX}/databricks/schemas:lookup",
+        {"catalog_name": catalog},
+    ).get("schemas", [])
 
 
 def get_schema_objects(catalog: str, schema: str) -> dict[str, Any]:
-    return _get(f"/api/databricks/catalogs/{catalog}/schemas/{schema}/objects")
+    return _post(
+        f"{API_V1_PREFIX}/databricks/schema-objects:lookup",
+        {"catalog_name": catalog, "schema_name": schema},
+    )
 
 
 def get_table_metadata(catalog: str, schema: str, table: str) -> dict[str, Any]:
-    return _get(f"/api/databricks/catalogs/{catalog}/schemas/{schema}/tables/{table}")
+    return _post(
+        f"{API_V1_PREFIX}/databricks/tables:lookup",
+        {"catalog_name": catalog, "schema_name": schema, "table_name": table},
+    )
 
 
 def get_test_cases() -> list[dict[str, Any]]:
-    return _get("/api/test-cases")
+    return _get(f"{API_V1_PREFIX}/test-cases")
 
 
 def create_test_case(payload: dict[str, str]) -> dict[str, Any]:
-    return _post("/api/test-cases", payload)
+    return _post(f"{API_V1_PREFIX}/test-cases", payload)
 
 
 def get_payors() -> list[str]:
-    return _get("/api/payor-config/payors").get("payors", [])
+    return _get(f"{API_V1_PREFIX}/payor-config/payors").get("payors", [])
 
 
 def get_file_types(payor: str) -> list[str]:
-    return _get(f"/api/payor-config/{payor}/file-types").get("file_types", [])
+    return _post(
+        f"{API_V1_PREFIX}/payor-config/file-types:lookup",
+        {"payor": payor},
+    ).get("file_types", [])
 
 
 def get_metadata_summary() -> dict[str, Any]:
-    return _get("/api/metadata/summary")
+    return _get(f"{API_V1_PREFIX}/metadata/summary")
 
 
 def get_genie_space_status() -> dict[str, Any]:
-    return _get("/api/genie-space/status")
+    return _get(f"{API_V1_PREFIX}/genie-space/status")
 
 
 def get_genie_context(payload: dict[str, Any]) -> dict[str, Any]:
-    return _post("/api/qa/genie-context", payload)
+    return _post(f"{API_V1_PREFIX}/qa/genie-context", payload)
 
 
 def refresh_metadata(payload: dict[str, Any]) -> dict[str, Any]:
-    return _post("/api/metadata/refresh", payload, timeout=60)
+    return _post(f"{API_V1_PREFIX}/metadata/refresh", payload, timeout=60)
 
 
 def generate_sql_context(payload: dict[str, Any]) -> None:
@@ -79,7 +92,7 @@ def generate_sql_context(payload: dict[str, Any]) -> None:
             show_time=True,
         ):
             genie_space = _post(
-                "/api/qa/genie-space",
+                f"{API_V1_PREFIX}/qa/genie-space",
                 payload,
                 timeout=GENIE_REQUEST_TIMEOUT,
             )
@@ -97,22 +110,22 @@ def generate_sql_context(payload: dict[str, Any]) -> None:
 
 def continue_genie_conversation(conversation_id: str, content: str) -> dict[str, Any]:
     return _post(
-        f"/api/qa/genie/conversations/{conversation_id}/messages",
+        f"{API_V1_PREFIX}/qa/genie/conversations/{conversation_id}/messages",
         {"content": content},
         timeout=GENIE_REQUEST_TIMEOUT,
     )
 
 
 def save_validation_sql(payload: dict[str, Any]) -> dict[str, Any]:
-    return _post("/api/qa/validation-sql", payload)
+    return _post(f"{API_V1_PREFIX}/qa/validation-sql", payload)
 
 
 def get_saved_validation_sql() -> list[dict[str, Any]]:
-    return _get("/api/qa/validation-sql")
+    return _post(f"{API_V1_PREFIX}/qa/validation-sql:search", {})
 
 
 def execute_saved_validation_sql(validation_sql_id: str) -> dict[str, Any]:
-    return _post(f"/api/qa/validation-sql/{validation_sql_id}/execute", {})
+    return _post(f"{API_V1_PREFIX}/qa/validation-sql/{validation_sql_id}:execute", {})
 
 
 def _response_detail(error: RequestException) -> str | None:

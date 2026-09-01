@@ -2,9 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.config import Settings
-from app.models.model_serving import ModelServingRequest
-from app.services.databricks_model_serving_service import (
+from data_health_monitor.config import Settings
+from data_health_monitor.models.model_serving import ModelServingRequest
+from data_health_monitor.services.databricks_model_serving_service import (
     DatabricksModelServingError,
     DatabricksModelServingService,
 )
@@ -36,9 +36,9 @@ def test_constructor_uses_oauth_profile_to_create_ai_gateway_client(monkeypatch)
             return SimpleNamespace(access_token="oauth-secret")
 
     fake_client = SimpleNamespace()
-    monkeypatch.setattr("app.services.databricks_model_serving_service.Config", FakeConfig)
+    monkeypatch.setattr("data_health_monitor.services.databricks_model_serving_service.Config", FakeConfig)
     monkeypatch.setattr(
-        "app.services.databricks_model_serving_service.OpenAI",
+        "data_health_monitor.services.databricks_model_serving_service.OpenAI",
         lambda **kwargs: captured.update(kwargs) or fake_client,
     )
 
@@ -82,7 +82,7 @@ def test_oauth_and_api_failures_do_not_expose_sensitive_details(monkeypatch):
         def oauth_token(self):
             raise RuntimeError("oauth-secret")
 
-    monkeypatch.setattr("app.services.databricks_model_serving_service.Config", FailingConfig)
+    monkeypatch.setattr("data_health_monitor.services.databricks_model_serving_service.Config", FailingConfig)
     with pytest.raises(DatabricksModelServingError, match="authentication failed") as oauth_error:
         DatabricksModelServingService(settings=Settings(databricks_profile="qa-profile", databricks_serving_model="qa-model"))
     assert "oauth-secret" not in str(oauth_error.value)

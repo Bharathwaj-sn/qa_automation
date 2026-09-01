@@ -3,7 +3,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from app.models.genie import (
+from data_health_monitor.models.genie import (
     GenieColumnConfig,
     GenieConfigurationError,
     GenieExampleQuestionSql,

@@ -5,9 +5,9 @@ from typing import cast
 import pytest
 from databricks.sdk import WorkspaceClient
 
-from app.config import Settings
-from app.models.genie import GenieSerializedSpace
-from app.services.genie_service import GenieError, GenieService
+from data_health_monitor.config import Settings
+from data_health_monitor.models.genie import GenieSerializedSpace
+from data_health_monitor.services.genie_service import GenieError, GenieService
 
 
 def serialized_payload():

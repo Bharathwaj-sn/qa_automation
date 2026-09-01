@@ -3,13 +3,13 @@ import re
 
 import pytest
 
-from app.config import Settings
-from app.models.metadata import MetadataTable
-from app.models.payor_config import PayorConfig
-from app.models.qa_context import QAContext, TableContext
-from app.models.test_case import TestCase
-from app.repositories.metadata_repository import MetadataTableNotFoundError
-from app.services.genie_context_service import GenieContextError, GenieContextService
+from data_health_monitor.config import Settings
+from data_health_monitor.models.metadata import MetadataTable
+from data_health_monitor.models.payor_config import PayorConfig
+from data_health_monitor.models.qa_context import QAContext, TableContext
+from data_health_monitor.models.test_case import TestCase
+from data_health_monitor.repositories.metadata_repository import MetadataTableNotFoundError
+from data_health_monitor.services.genie_context_service import GenieContextError, GenieContextService
 
 
 class FakeMetadataService:
