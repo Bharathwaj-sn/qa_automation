@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.dependencies import (
+from backend.api.dependencies import (
     get_genie_context_service,
     get_genie_space_coordinator,
     get_payor_config_service,
@@ -8,14 +8,14 @@ from data_health_monitor.api.dependencies import (
     get_test_case_service,
     get_validation_sql_service,
 )
-from data_health_monitor.main import app
-from data_health_monitor.models.genie import GenieSQLGeneration, GenieSerializedSpace
-from data_health_monitor.models.payor_config import PayorConfig
-from data_health_monitor.models.qa_context import QAContext, QAContextRequest, TableContext
-from data_health_monitor.services.genie_service import GenieError
-from data_health_monitor.models.test_case import TestCase
-from data_health_monitor.models.validation_sql import ValidationSQL
-from data_health_monitor.services.qa_context_service import QAContextTestCaseNotFoundError
+from backend.main import app
+from backend.models.genie import GenieSQLGeneration, GenieSerializedSpace
+from backend.models.payor_config import PayorConfig
+from backend.models.qa_context import QAContext, QAContextRequest, TableContext
+from backend.services.genie_service import GenieError
+from backend.models.test_case import TestCase
+from backend.models.validation_sql import ValidationSQL
+from backend.services.qa_context_service import QAContextTestCaseNotFoundError
 
 
 class FakeContextService:

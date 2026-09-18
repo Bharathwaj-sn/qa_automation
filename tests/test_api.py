@@ -3,11 +3,11 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.dependencies import get_databricks_service
-from data_health_monitor.main import app
-from data_health_monitor.models.metadata import MetadataRefreshRequest
-from data_health_monitor.repositories.metadata_repository import MetadataRepository
-from data_health_monitor.services.metadata_service import MetadataService
+from backend.api.dependencies import get_databricks_service
+from backend.main import app
+from backend.models.metadata import MetadataRefreshRequest
+from backend.repositories.metadata_repository import MetadataRepository
+from backend.services.metadata_service import MetadataService
 
 
 class FakeDatabricksService:

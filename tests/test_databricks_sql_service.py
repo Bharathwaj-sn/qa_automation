@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from data_health_monitor.models.databricks_sql import SQLExecutionRequest, SQLParameter
-from data_health_monitor.services.databricks_sql_service import (
+from backend.models.databricks_sql import SQLExecutionRequest, SQLParameter
+from backend.services.databricks_sql_service import (
     DatabricksSQLExecutionError,
     DatabricksSQLService,
 )

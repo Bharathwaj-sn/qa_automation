@@ -8,9 +8,9 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-from data_health_monitor.config import Settings
-from data_health_monitor.core.logging import configure_logging, log_event
-from data_health_monitor.main import app
+from backend.config import Settings
+from backend.core.logging import configure_logging, log_event
+from backend.main import app
 
 
 @pytest.fixture
@@ -79,3 +79,18 @@ def test_log_file_rotates_without_removing_the_active_file(tmp_path: Path):
 
     assert log_file.exists()
     assert Path(f"{log_file}.1").exists()
+
+
+def test_console_log_level_does_not_reduce_file_audit_events(tmp_path: Path, capsys):
+    log_file = tmp_path / "application.log"
+    configure_logging(Settings(app_log_file=str(log_file), app_console_log_level="ERROR"))
+
+    log_event(logging.INFO, "file_only_event")
+    log_event(logging.ERROR, "console_error_event")
+
+    console_events = [json.loads(line)["event"] for line in capsys.readouterr().out.splitlines()]
+    assert console_events == ["console_error_event"]
+    assert [record["event"] for record in _records(log_file)] == [
+        "file_only_event",
+        "console_error_event",
+    ]

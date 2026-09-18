@@ -1,16 +1,16 @@
 import pytest
 from pydantic import ValidationError
 
-from data_health_monitor.api.v1.schemas import (
+from backend.api.v1.schemas import (
     CatalogLookupRequest,
     PayorConfigLookupRequest,
     SchemaLookupRequest,
     TableLookupRequest,
     ValidationSQLSearchRequest,
 )
-from data_health_monitor.models.databricks_sql import SQLExecutionRequest
-from data_health_monitor.models.payor_config import PayorConfig
-from data_health_monitor.models.qa_context import QAContextRequest, QAContextSelection, TableContext
+from backend.models.databricks_sql import SQLExecutionRequest
+from backend.models.payor_config import PayorConfig
+from backend.models.qa_context import QAContextRequest, QAContextSelection, TableContext
 
 
 @pytest.mark.parametrize(

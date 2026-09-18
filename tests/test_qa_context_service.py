@@ -2,19 +2,19 @@ from datetime import datetime, timezone
 
 import pytest
 
-from data_health_monitor.models.metadata import MetadataTable
-from data_health_monitor.models.payor_config import PayorConfig
-from data_health_monitor.models.qa_context import QAContextRequest, QAContextSelection
-from data_health_monitor.models.test_case import TestCase
-from data_health_monitor.repositories.metadata_repository import MetadataSnapshotNotFoundError, MetadataTableNotFoundError
-from data_health_monitor.services.qa_context_service import (
+from backend.models.metadata import MetadataTable
+from backend.models.payor_config import PayorConfig
+from backend.models.qa_context import QAContextRequest, QAContextSelection
+from backend.models.test_case import TestCase
+from backend.repositories.metadata_repository import MetadataSnapshotNotFoundError, MetadataTableNotFoundError
+from backend.services.qa_context_service import (
     QAContextMetadataTableNotFoundError,
     QAContextService,
     QAContextTableMismatchError,
     QAContextTestCaseNotFoundError,
     resolve_expected_table,
 )
-from data_health_monitor.services.test_case_service import TestCaseNotFoundError
+from backend.services.test_case_service import TestCaseNotFoundError
 
 
 def make_test_case() -> TestCase:

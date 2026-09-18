@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from data_health_monitor.config import Settings
-from data_health_monitor.models.genie import GenieSQLGeneration, GenieSerializedSpace, GenieSpace, GenieSpaceListResponse, GenieSpaceSummary
-from data_health_monitor.services.genie_space_coordinator import GenieSpaceConfigurationError, GenieSpaceCoordinator
+from backend.config import Settings
+from backend.models.genie import GenieSQLGeneration, GenieSerializedSpace, GenieSpace, GenieSpaceListResponse, GenieSpaceSummary
+from backend.services.genie_space_coordinator import GenieSpaceConfigurationError, GenieSpaceCoordinator
 
 
 class FakeGenieService:

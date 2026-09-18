@@ -1,5 +1,5 @@
-from data_health_monitor.models.metadata import MetadataRefreshInfo, MetadataSnapshot
-from data_health_monitor.repositories.metadata_repository import MetadataRepository, MetadataTableNotFoundError
+from backend.models.metadata import MetadataRefreshInfo, MetadataSnapshot
+from backend.repositories.metadata_repository import MetadataRepository, MetadataTableNotFoundError
 
 
 def test_get_table_metadata_reads_the_selected_table_from_the_persisted_snapshot(tmp_path):

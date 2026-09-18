@@ -1,12 +1,12 @@
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.dependencies import (
+from backend.api.dependencies import (
     get_databricks_service,
     get_payor_config_service,
     get_validation_sql_service,
 )
-from data_health_monitor.main import app
-from data_health_monitor.models.databricks import SchemaResponse
+from backend.main import app
+from backend.models.databricks import SchemaResponse
 
 
 EXPECTED_V1_OPERATIONS = {

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from data_health_monitor.config import Settings
-from data_health_monitor.models.databricks_sql import SQLExecutionResult
-from data_health_monitor.services.databricks_sql_service import DatabricksSQLExecutionError
-from data_health_monitor.services.payor_config_service import (
+from backend.config import Settings
+from backend.models.databricks_sql import SQLExecutionResult
+from backend.services.databricks_sql_service import DatabricksSQLExecutionError
+from backend.services.payor_config_service import (
     DuplicatePayorConfigError,
     PayorConfigDeserializationError,
     PayorConfigNotFoundError,

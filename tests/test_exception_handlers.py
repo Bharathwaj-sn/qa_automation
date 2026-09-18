@@ -6,16 +6,16 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from data_health_monitor.api.dependencies import (
+from backend.api.dependencies import (
     get_genie_space_coordinator,
     get_test_case_service,
     get_validation_sql_service,
 )
-from data_health_monitor.config import Settings
-from data_health_monitor.core.logging import configure_logging
-from data_health_monitor.main import app
-from data_health_monitor.services.databricks_sql_service import DatabricksSQLExecutionError
-from data_health_monitor.services.test_case_service import TestCaseNotFoundError
+from backend.config import Settings
+from backend.core.logging import configure_logging
+from backend.main import app
+from backend.services.databricks_sql_service import DatabricksSQLExecutionError
+from backend.services.test_case_service import TestCaseNotFoundError
 
 
 @pytest.fixture

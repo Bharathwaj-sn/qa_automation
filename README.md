@@ -54,7 +54,7 @@ w = WorkspaceClient()
 Open Terminal 1 in the project root and run:
 
 ```powershell
-uvicorn data_health_monitor.main:app --reload
+uvicorn data_health_monitor.main:app --reload --log-level error --no-access-log
 ```
 
 Backend URLs:
@@ -64,12 +64,13 @@ Backend URLs:
 
 ## Application logging
 
-Data Health Monitor emits structured JSON logs to stdout and a rotating local file.
-Configure the log level, file location, rotation size, and retained archives with
-these environment variables:
+Data Health Monitor writes all configured events to a rotating local file and
+only errors to stdout by default. Configure the file and console levels, file
+location, rotation size, and retained archives with these environment variables:
 
 ```env
 APP_LOG_LEVEL=INFO
+APP_CONSOLE_LOG_LEVEL=ERROR
 APP_LOG_FILE=logs/data_health_monitor.log
 APP_LOG_MAX_BYTES=10485760
 APP_LOG_BACKUP_COUNT=5

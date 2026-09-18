@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from data_health_monitor.config import Settings
-from data_health_monitor.models.databricks_sql import SQLExecutionResult
-from data_health_monitor.models.validation_sql import ValidationSQLCreate
-from data_health_monitor.services.validation_sql_service import ValidationSQLService
+from backend.config import Settings
+from backend.models.databricks_sql import SQLExecutionResult
+from backend.models.validation_sql import ValidationSQLCreate
+from backend.services.validation_sql_service import ValidationSQLService
 
 
 class MockSQLService:
