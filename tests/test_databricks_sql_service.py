@@ -8,6 +8,7 @@ from app.models.databricks_sql import SQLExecutionRequest, SQLParameter
 from app.services.databricks_sql_service import (
     DatabricksSQLExecutionError,
     DatabricksSQLService,
+    DatabricksSQLTimeoutError,
 )
 
 
@@ -99,7 +100,10 @@ def test_parameters_are_passed_to_statement_execution():
         )
     )
 
-    assert execution.calls[0]["parameters"] == [{"name": "test_case_id", "value": "TC001", "type": "text"}]
+    parameter = execution.calls[0]["parameters"][0]
+    assert parameter.name == "test_case_id"
+    assert parameter.value == "TC001"
+    assert parameter.type == "STRING"
 
 
 def test_catalog_and_schema_are_passed_to_statement_execution():
@@ -175,3 +179,101 @@ def test_while_pending_then_succeeds_after_polling():
     assert result.statement_id == "stmt-poll"
     assert result.rows == [[1, "ok"]]
     assert result.status == "SUCCEEDED"
+
+
+def test_failed_terminal_state_without_error_message_raises_application_error():
+    response = make_result(statement_id="stmt-failed", status="FAILED")
+    client = SimpleNamespace(statement_execution=FakeStatementExecution([response]))
+    service = DatabricksSQLService(client=client)
+
+    with pytest.raises(DatabricksSQLExecutionError, match="status FAILED"):
+        service.execute(
+            SQLExecutionRequest(
+                statement="SELECT invalid",
+                warehouse_id="wh-fail",
+                execution_timeout_seconds=60,
+            )
+        )
+
+
+def test_failed_terminal_state_without_error_message_preserves_legacy_single_query_behavior():
+    response = make_result(statement_id="stmt-failed", status="FAILED")
+    client = SimpleNamespace(statement_execution=FakeStatementExecution([response]))
+    service = DatabricksSQLService(client=client)
+
+    result = service.execute(SQLExecutionRequest(statement="SELECT invalid", warehouse_id="wh-fail"))
+
+    assert result.status == "FAILED"
+
+
+def test_execution_timeout_cancels_statement_and_reports_confirmed_cancellation(monkeypatch):
+    pending = SimpleNamespace(
+        statement_id="stmt-timeout",
+        status=SimpleNamespace(state="RUNNING", error=None),
+        manifest=None,
+        result=None,
+    )
+    canceled = SimpleNamespace(
+        statement_id="stmt-timeout",
+        status=SimpleNamespace(state="CANCELED", error=None),
+        manifest=None,
+        result=None,
+    )
+
+    class CancelingExecution(FakeStatementExecution):
+        def __init__(self):
+            super().__init__([pending, canceled])
+            self.canceled_statement_ids = []
+
+        def cancel_execution(self, statement_id):
+            self.canceled_statement_ids.append(statement_id)
+
+    execution = CancelingExecution()
+    client = SimpleNamespace(statement_execution=execution)
+    service = DatabricksSQLService(client=client)
+    monotonic_values = iter([0.0, 1.0, 1.0, 1.0])
+    monkeypatch.setattr("app.services.databricks_sql_service.time.monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr("app.services.databricks_sql_service.time.sleep", lambda _: None)
+
+    with pytest.raises(DatabricksSQLTimeoutError) as exc_info:
+        service.execute(
+            SQLExecutionRequest(
+                statement="SELECT slow_query()",
+                warehouse_id="wh-timeout",
+                execution_timeout_seconds=0.5,
+            )
+        )
+
+    assert exc_info.value.cancellation_confirmed is True
+    assert execution.canceled_statement_ids == ["stmt-timeout"]
+
+
+def test_execution_timeout_reports_unconfirmed_cancellation(monkeypatch):
+    pending = SimpleNamespace(
+        statement_id="stmt-timeout",
+        status=SimpleNamespace(state="RUNNING", error=None),
+        manifest=None,
+        result=None,
+    )
+
+    class FailingCancellation(FakeStatementExecution):
+        def cancel_execution(self, statement_id):
+            raise RuntimeError("Cancellation unavailable")
+
+    execution = FailingCancellation([pending])
+    client = SimpleNamespace(statement_execution=execution)
+    service = DatabricksSQLService(client=client)
+    monotonic_values = iter([0.0, 1.0])
+    monkeypatch.setattr("app.services.databricks_sql_service.time.monotonic", lambda: next(monotonic_values))
+
+    with pytest.raises(DatabricksSQLTimeoutError) as exc_info:
+        service.execute(
+            SQLExecutionRequest(
+                statement="SELECT slow_query()",
+                warehouse_id="wh-timeout",
+                execution_timeout_seconds=0.5,
+            )
+        )
+
+    assert exc_info.value.cancellation_confirmed is False
+    assert "Cancellation unavailable" in str(exc_info.value.__cause__)

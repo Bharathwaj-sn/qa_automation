@@ -10,6 +10,7 @@ from requests import RequestException
 API_BASE_URL = "http://127.0.0.1:8000"
 REQUEST_TIMEOUT = 30
 GENIE_REQUEST_TIMEOUT = 20 * 60 + 30
+BATCH_REQUEST_TIMEOUT = 30 * 60 + 30
 
 
 def _get(path: str, timeout: int = REQUEST_TIMEOUT) -> Any:
@@ -115,6 +116,14 @@ def execute_saved_validation_sql(validation_sql_id: str) -> dict[str, Any]:
     return _post(f"/api/qa/validation-sql/{validation_sql_id}/execute", {})
 
 
+def execute_validation_sql_batch(validation_sql_ids: list[str]) -> dict[str, Any]:
+    return _post(
+        "/api/qa/validation-sql/batch-execute",
+        {"validation_sql_ids": validation_sql_ids},
+        timeout=BATCH_REQUEST_TIMEOUT,
+    )
+
+
 def _response_detail(error: RequestException) -> str | None:
     response = getattr(error, "response", None)
     if response is None:
@@ -137,6 +146,9 @@ def _initialize_state() -> None:
         "genie_context_preview": None,
         "genie_context_preview_key": None,
         "test_case_execution_result": None,
+        "batch_execution_order": [],
+        "batch_execution_result": None,
+        "batch_running": False,
         "metadata_catalog": "",
         "metadata_schema": "",
         "metadata_table": "",
@@ -548,23 +560,44 @@ def render_execution_page() -> None:
         st.info("No saved validation SQL is available to test.")
         return
 
+    saved_sql_by_id = {item["validation_sql_id"]: item for item in saved_sql_items}
+    st.session_state.batch_execution_order = [
+        validation_sql_id
+        for validation_sql_id in st.session_state.batch_execution_order
+        if validation_sql_id in saved_sql_by_id
+    ]
+
     st.subheader("Saved Health Checks")
     for saved_sql in saved_sql_items:
-        test_case_column, table_column, scope_column, action_column = st.columns((2, 4, 3, 1))
+        validation_sql_id = saved_sql["validation_sql_id"]
+        select_column, test_case_column, table_column, scope_column, action_column = st.columns((1, 2, 4, 3, 1))
+        selected = select_column.checkbox(
+            "Select",
+            key=f"batch_select_{validation_sql_id}",
+            label_visibility="collapsed",
+        )
+        if selected and validation_sql_id not in st.session_state.batch_execution_order:
+            st.session_state.batch_execution_order.append(validation_sql_id)
+        elif not selected and validation_sql_id in st.session_state.batch_execution_order:
+            st.session_state.batch_execution_order.remove(validation_sql_id)
+
         test_case_column.write(saved_sql["test_case_id"])
         table_column.write(saved_sql["target_table"])
         scope_column.write(f"{saved_sql['payor']} | {saved_sql['file_type']}")
-        if action_column.button("Test", key=f"test_{saved_sql['validation_sql_id']}"):
+        if action_column.button("Test", key=f"test_{validation_sql_id}"):
             try:
                 with st.spinner(f"Testing {saved_sql['target_table']}..."):
                     st.session_state.test_case_execution_result = execute_saved_validation_sql(
-                        saved_sql["validation_sql_id"]
+                        validation_sql_id
                     )
             except RequestException as error:
                 st.error(_response_detail(error) or "Unable to execute saved validation SQL.")
 
+        with st.expander(f"SQL | {validation_sql_id}"):
+            st.code(saved_sql["generated_sql"], language="sql")
+
         result = st.session_state.test_case_execution_result
-        if result and result["validation_sql_id"] == saved_sql["validation_sql_id"]:
+        if result and result["validation_sql_id"] == validation_sql_id:
             st.success(
                 f"{result['execution_status']}: {result['row_count']} row(s) returned."
             )
@@ -573,6 +606,98 @@ def render_execution_page() -> None:
                 st.dataframe(rows, hide_index=True, use_container_width=True)
             else:
                 st.json(result)
+
+    st.divider()
+    st.subheader("Selected Queries / Execution Order")
+    batch_order = st.session_state.batch_execution_order
+    if not batch_order:
+        st.info("Select at least one saved health check to create a batch.")
+    else:
+        for index, validation_sql_id in enumerate(batch_order):
+            saved_sql = saved_sql_by_id[validation_sql_id]
+            order_column, details_column, up_column, down_column = st.columns((1, 7, 1, 1))
+            order_column.write(index + 1)
+            details_column.write(
+                f"{saved_sql['test_case_id']} | {saved_sql['target_table']} | {validation_sql_id}"
+            )
+            if up_column.button(
+                "Move up",
+                key=f"batch_up_{validation_sql_id}",
+                disabled=index == 0 or st.session_state.batch_running,
+            ):
+                batch_order[index - 1], batch_order[index] = batch_order[index], batch_order[index - 1]
+                st.rerun()
+            if down_column.button(
+                "Move down",
+                key=f"batch_down_{validation_sql_id}",
+                disabled=index == len(batch_order) - 1 or st.session_state.batch_running,
+            ):
+                batch_order[index], batch_order[index + 1] = batch_order[index + 1], batch_order[index]
+                st.rerun()
+
+    if st.button(
+        "Run selected queries",
+        type="primary",
+        disabled=not batch_order or st.session_state.batch_running,
+    ):
+        st.session_state.batch_running = True
+        try:
+            with st.spinner("Running selected queries in order...", show_time=True):
+                st.session_state.batch_execution_result = execute_validation_sql_batch(list(batch_order))
+        except RequestException as error:
+            st.error(_response_detail(error) or "Unable to execute validation SQL batch.")
+        finally:
+            st.session_state.batch_running = False
+
+    batch_result = st.session_state.batch_execution_result
+    if not batch_result:
+        return
+
+    st.divider()
+    st.subheader("Batch Execution Result")
+    st.write(
+        f"**Status:** {batch_result['status']} | "
+        f"**Duration:** {batch_result['duration_ms'] / 1000:.2f} seconds"
+    )
+    total_column, succeeded_column, failed_column, skipped_column = st.columns(4)
+    total_column.metric("Total", batch_result["total_count"])
+    succeeded_column.metric("Succeeded", batch_result["succeeded_count"])
+    failed_column.metric("Failed", batch_result["failed_count"])
+    skipped_column.metric("Skipped", batch_result["skipped_count"])
+    if batch_result.get("error"):
+        st.error(batch_result["error"])
+
+    for query_result in batch_result["query_results"]:
+        saved_sql = query_result["validation_sql"]
+        duration_seconds = query_result["duration_ms"] / 1000
+        title = (
+            f"{query_result['execution_order']}. {saved_sql['test_case_id']} | "
+            f"{query_result['status']} | {duration_seconds:.2f} seconds"
+        )
+        with st.expander(title):
+            st.write(f"**Query ID:** {saved_sql['validation_sql_id']}")
+            st.write(f"**Target:** {saved_sql['target_table']}")
+            st.write(f"**Scope:** {saved_sql['payor']} | {saved_sql['file_type']}")
+            st.write(f"**Execution status:** {query_result['status']}")
+            st.write(f"**Duration:** {duration_seconds:.2f} seconds")
+            if query_result.get("statement_id"):
+                st.write(f"**Statement ID:** {query_result['statement_id']}")
+            st.code(saved_sql["generated_sql"], language="sql")
+
+            execution_result = query_result.get("result")
+            if execution_result:
+                st.write(f"**Rows returned:** {execution_result['row_count']}")
+                if execution_result["columns"]:
+                    rows = [
+                        dict(zip(execution_result["columns"], row))
+                        for row in execution_result["rows"]
+                    ]
+                    st.dataframe(rows, hide_index=True, use_container_width=True)
+                else:
+                    st.json(execution_result)
+
+            if query_result.get("error"):
+                st.error(query_result["error"])
 
 
 def main() -> None:

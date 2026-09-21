@@ -106,6 +106,23 @@ Frontend URL:
 - GET /api/databricks/catalogs/{catalog_name}/schemas/{schema_name}/tables/{table_name}
 - POST /api/llm/chat
 - POST /api/model-serving/predict
+- GET /api/qa/validation-sql
+- POST /api/qa/validation-sql/{validation_sql_id}/execute
+- POST /api/qa/validation-sql/batch-execute
+
+## Batch validation SQL execution
+
+The Run Health Checks page can submit an ordered list of saved validation SQL IDs. The API executes each
+statement sequentially through the existing Databricks SQL Statement Execution API and continues after an
+individual query failure. Successful individual results use the existing result table; the batch aggregate is
+returned to Streamlit and remains in session state only.
+
+The default per-query and whole-batch deadlines can be overridden through environment variables:
+
+```env
+SQL_EXECUTION_TIMEOUT_SECONDS=300
+BATCH_EXECUTION_TIMEOUT_SECONDS=1800
+```
 
 ## LLM configuration
 

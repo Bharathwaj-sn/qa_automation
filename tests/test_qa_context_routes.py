@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.api.routes import (
+    get_batch_execution_service,
     get_genie_context_service,
     get_genie_space_coordinator,
     get_payor_config_service,
@@ -15,7 +16,9 @@ from app.models.qa_context import QAContext, QAContextRequest, TableContext
 from app.services.genie_service import GenieError
 from app.models.test_case import TestCase
 from app.models.validation_sql import ValidationSQL
+from app.services.databricks_sql_service import DatabricksSQLExecutionError
 from app.services.qa_context_service import QAContextTestCaseNotFoundError
+from app.services.validation_sql_service import ValidationSQLNotFoundError
 
 
 class FakeContextService:
@@ -324,3 +327,128 @@ def test_validation_sql_execution_route_executes_a_saved_statement():
     assert response.status_code == 200
     assert response.json()["execution_status"] == "SUCCEEDED"
     assert response.json()["rows"] == [[0]]
+    assert "duration_ms" not in response.json()
+
+
+def test_validation_sql_batch_execution_route_preserves_request_order():
+    captured_requests = []
+
+    class FakeBatchExecutionService:
+        def execute_batch(self, request):
+            captured_requests.append(request)
+            return {
+                "batch_id": "batch-1",
+                "status": "SUCCEEDED",
+                "started_at": "2026-08-31T00:00:00Z",
+                "completed_at": "2026-08-31T00:00:03Z",
+                "duration_ms": 3000,
+                "total_count": 2,
+                "succeeded_count": 2,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "query_results": [
+                    {
+                        "validation_sql": {
+                            "validation_sql_id": validation_sql_id,
+                            "test_case_id": f"TC{index}",
+                            "target_table": "main.qa.members",
+                            "payor": "ABC",
+                            "file_type": "member",
+                            "generated_sql": f"SELECT {index}",
+                            "genie_space_id": "space-1",
+                            "conversation_id": "conversation-1",
+                            "message_id": f"message-{index}",
+                            "created_at": "2026-08-31T00:00:00Z",
+                            "status": "SAVED",
+                        },
+                        "execution_order": index,
+                        "status": "SUCCEEDED",
+                        "duration_ms": 1000,
+                        "result": {
+                            "validation_sql_id": validation_sql_id,
+                            "test_case_id": f"TC{index}",
+                            "target_table": "main.qa.members",
+                            "payor": "ABC",
+                            "file_type": "member",
+                            "statement_id": f"statement-{index}",
+                            "execution_status": "SUCCEEDED",
+                            "row_count": 1,
+                            "columns": ["result"],
+                            "rows": [[index]],
+                            "executed_at": "2026-08-31T00:00:00Z",
+                        },
+                    }
+                    for index, validation_sql_id in enumerate(request.validation_sql_ids, start=1)
+                ],
+            }
+
+    app.dependency_overrides[get_batch_execution_service] = lambda: FakeBatchExecutionService()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/validation-sql/batch-execute",
+            json={"validation_sql_ids": ["validation-3", "validation-1"]},
+        )
+    finally:
+        app.dependency_overrides.pop(get_batch_execution_service, None)
+
+    assert response.status_code == 200
+    assert captured_requests[0].validation_sql_ids == ["validation-3", "validation-1"]
+    assert [
+        item["validation_sql"]["validation_sql_id"]
+        for item in response.json()["query_results"]
+    ] == ["validation-3", "validation-1"]
+
+
+def test_validation_sql_batch_execution_route_rejects_empty_and_duplicate_ids():
+    client = TestClient(app)
+
+    empty_response = client.post(
+        "/api/qa/validation-sql/batch-execute",
+        json={"validation_sql_ids": []},
+    )
+    duplicate_response = client.post(
+        "/api/qa/validation-sql/batch-execute",
+        json={"validation_sql_ids": ["validation-1", "validation-1"]},
+    )
+
+    assert empty_response.status_code == 422
+    assert duplicate_response.status_code == 422
+
+
+def test_validation_sql_batch_execution_route_maps_unknown_ids_to_not_found():
+    class MissingBatchExecutionService:
+        def execute_batch(self, request):
+            raise ValidationSQLNotFoundError("Saved validation SQL 'validation-missing' was not found.")
+
+    app.dependency_overrides[get_batch_execution_service] = lambda: MissingBatchExecutionService()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/validation-sql/batch-execute",
+            json={"validation_sql_ids": ["validation-missing"]},
+        )
+    finally:
+        app.dependency_overrides.pop(get_batch_execution_service, None)
+
+    assert response.status_code == 404
+    assert "validation-missing" in response.json()["detail"]
+
+
+def test_validation_sql_batch_execution_route_maps_databricks_errors_to_bad_gateway():
+    class FailingBatchExecutionService:
+        def execute_batch(self, request):
+            raise DatabricksSQLExecutionError(None, "Warehouse unavailable")
+
+    app.dependency_overrides[get_batch_execution_service] = lambda: FailingBatchExecutionService()
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/qa/validation-sql/batch-execute",
+            json={"validation_sql_ids": ["validation-1"]},
+        )
+    finally:
+        app.dependency_overrides.pop(get_batch_execution_service, None)
+
+    assert response.status_code == 502
+    assert "Unable to execute validation SQL batch" in response.json()["detail"]

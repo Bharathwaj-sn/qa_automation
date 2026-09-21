@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     test_case_results_catalog: str = "main"
     test_case_results_schema: str = "qa"
     test_case_results_table_name: str = "test_case_results"
+    sql_execution_timeout_seconds: float = 300
+    batch_execution_timeout_seconds: float = 1800
     genie_space_id: str | None = None
     genie_space_title: str | None = None
     litellm_model: str | None = None

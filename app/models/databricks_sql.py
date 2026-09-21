@@ -16,6 +16,7 @@ class SQLExecutionRequest(BaseModel):
     schema: str | None = None
     parameters: list[SQLParameter] = Field(default_factory=list)
     wait_timeout: str = "30s"
+    execution_timeout_seconds: float | None = Field(default=None, gt=0)
 
 
 class SQLExecutionResult(BaseModel):

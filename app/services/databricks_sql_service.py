@@ -20,7 +20,22 @@ class DatabricksSQLExecutionError(RuntimeError):
             self.__cause__ = original_exception
 
 
+class DatabricksSQLTimeoutError(DatabricksSQLExecutionError):
+    def __init__(
+        self,
+        statement_id: str | None,
+        message: str,
+        cancellation_confirmed: bool,
+        original_exception: Exception | None = None,
+    ):
+        self.cancellation_confirmed = cancellation_confirmed
+        super().__init__(statement_id, message, original_exception)
+
+
 class DatabricksSQLService:
+    _poll_interval_seconds = 0.25
+    _cancellation_confirmation_timeout_seconds = 10.0
+
     def __init__(
         self,
         client: WorkspaceClient | None = None,
@@ -92,17 +107,64 @@ class DatabricksSQLService:
             row_count=row_count,
         )
 
-    def _wait_for_completion(self, response: Any) -> Any:
+    def _cancel_timed_out_statement(self, statement_id: str, timeout_seconds: float) -> None:
+        try:
+            self.client.statement_execution.cancel_execution(statement_id)
+        except Exception as exc:
+            raise DatabricksSQLTimeoutError(
+                statement_id=statement_id,
+                message=f"Statement exceeded the {timeout_seconds:g}-second execution timeout; cancellation failed.",
+                cancellation_confirmed=False,
+                original_exception=exc,
+            ) from exc
+
+        confirmation_deadline = time.monotonic() + self._cancellation_confirmation_timeout_seconds
+        while time.monotonic() < confirmation_deadline:
+            try:
+                current = self.client.statement_execution.get_statement(statement_id)
+            except Exception as exc:
+                raise DatabricksSQLTimeoutError(
+                    statement_id=statement_id,
+                    message=(
+                        f"Statement exceeded the {timeout_seconds:g}-second execution timeout; "
+                        "cancellation could not be confirmed."
+                    ),
+                    cancellation_confirmed=False,
+                    original_exception=exc,
+                ) from exc
+
+            state = self._status_value(getattr(current, "status", None))
+            if state not in {"PENDING", "RUNNING"}:
+                raise DatabricksSQLTimeoutError(
+                    statement_id=statement_id,
+                    message=f"Statement exceeded the {timeout_seconds:g}-second execution timeout.",
+                    cancellation_confirmed=True,
+                )
+            time.sleep(self._poll_interval_seconds)
+
+        raise DatabricksSQLTimeoutError(
+            statement_id=statement_id,
+            message=(
+                f"Statement exceeded the {timeout_seconds:g}-second execution timeout; "
+                "cancellation could not be confirmed."
+            ),
+            cancellation_confirmed=False,
+        )
+
+    def _wait_for_completion(self, response: Any, timeout_seconds: float | None = None) -> Any:
         current = response
+        deadline = time.monotonic() + timeout_seconds if timeout_seconds is not None else None
         while True:
             status = getattr(current, "status", None)
             state = self._status_value(status)
             if state not in {"PENDING", "RUNNING"}:
                 error_message = self._error_message(status)
-                if state in {"FAILED", "CANCELED", "CLOSED"} and error_message:
+                if state in {"FAILED", "CANCELED", "CLOSED"} and (
+                    error_message or timeout_seconds is not None
+                ):
                     raise DatabricksSQLExecutionError(
                         statement_id=getattr(current, "statement_id", None),
-                        message=error_message,
+                        message=error_message or f"Statement execution ended with status {state}.",
                     )
                 return current
 
@@ -110,8 +172,11 @@ class DatabricksSQLService:
             if not statement_id:
                 return current
 
+            if deadline is not None and time.monotonic() >= deadline:
+                self._cancel_timed_out_statement(statement_id, timeout_seconds)
+
             current = self.client.statement_execution.get_statement(statement_id)
-            time.sleep(0.25)
+            time.sleep(self._poll_interval_seconds)
 
     def execute(self, request: SQLExecutionRequest) -> SQLExecutionResult:
         started_at = time.perf_counter()
@@ -125,7 +190,7 @@ class DatabricksSQLService:
                 wait_timeout=request.wait_timeout,
             )
 
-            response = self._wait_for_completion(response)
+            response = self._wait_for_completion(response, request.execution_timeout_seconds)
             result = self._normalize_result(response)
             result.duration_ms = int((time.perf_counter() - started_at) * 1000)
             return result

@@ -6,7 +6,12 @@ from uuid import uuid4
 
 from app.config import Settings, get_settings
 from app.models.databricks_sql import SQLExecutionRequest, SQLExecutionResult, SQLParameter
-from app.models.validation_sql import TestCaseResult, ValidationSQL, ValidationSQLCreate
+from app.models.validation_sql import (
+    SavedSQLExecutionResult,
+    TestCaseResult,
+    ValidationSQL,
+    ValidationSQLCreate,
+)
 from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
 
 
@@ -14,10 +19,15 @@ class ValidationSQLNotFoundError(RuntimeError):
     pass
 
 
+class ValidationSQLResultPersistenceError(DatabricksSQLExecutionError):
+    pass
+
+
 class ValidationSQLService:
     def __init__(self, sql_service: DatabricksSQLService, settings: Settings | None = None):
         self.sql_service = sql_service
         self.settings = settings or get_settings()
+        self._results_table_initialized = False
 
     @property
     def _table_name(self) -> str:
@@ -79,33 +89,67 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :g
                 parameters=parameters,
             )
         )
-        return [
-            ValidationSQL(
-                validation_sql_id=str(row[0]), test_case_id=str(row[1]), target_table=str(row[2]),
-                payor=str(row[3]), file_type=str(row[4]), generated_sql=str(row[5]),
-                genie_space_id=str(row[6]), conversation_id=str(row[7]), message_id=str(row[8]),
-                created_at=row[9], status=str(row[10]),
+        return [self._validation_sql_from_row(row) for row in result.rows]
+
+    def get_saved_by_ids(self, validation_sql_ids: list[str]) -> list[ValidationSQL]:
+        if not validation_sql_ids:
+            return []
+
+        parameter_names = [f"validation_sql_id_{index}" for index in range(len(validation_sql_ids))]
+        placeholders = ", ".join(f":{name}" for name in parameter_names)
+        result = self.sql_service.execute(
+            SQLExecutionRequest(
+                statement=(
+                    "SELECT COALESCE(validation_sql_id, message_id), test_case_id, target_table, payor, "
+                    "file_type, generated_sql, genie_space_id, conversation_id, message_id, created_at, status "
+                    f"FROM {self._table_name} WHERE COALESCE(validation_sql_id, message_id) IN ({placeholders})"
+                ),
+                warehouse_id=self.settings.databricks_warehouse_id or "",
+                catalog=self.settings.validation_sql_catalog,
+                schema=self.settings.validation_sql_schema,
+                parameters=[
+                    SQLParameter(name=name, value=validation_sql_id)
+                    for name, validation_sql_id in zip(parameter_names, validation_sql_ids)
+                ],
             )
-            for row in result.rows
-        ]
+        )
+        return [self._validation_sql_from_row(row) for row in result.rows]
 
     def execute_saved(self, validation_sql_id: str) -> TestCaseResult:
         saved_sql = next((item for item in self.list_saved() if item.validation_sql_id == validation_sql_id), None)
         if saved_sql is None:
             raise ValidationSQLNotFoundError(f"Saved validation SQL '{validation_sql_id}' was not found.")
 
+        return self.execute_saved_sql(saved_sql).result
+
+    def execute_saved_sql(
+        self,
+        saved_sql: ValidationSQL,
+        execution_timeout_seconds: float | None = None,
+    ) -> SavedSQLExecutionResult:
         execution = self.sql_service.execute(
             SQLExecutionRequest(
                 statement=saved_sql.generated_sql,
                 warehouse_id=self.settings.databricks_warehouse_id or "",
                 catalog=self.settings.databricks_catalog,
                 schema=self.settings.databricks_schema,
+                execution_timeout_seconds=execution_timeout_seconds,
             )
         )
-        return self._save_result(saved_sql, execution)
+        try:
+            result = self._save_result(saved_sql, execution)
+        except DatabricksSQLExecutionError as exc:
+            raise ValidationSQLResultPersistenceError(
+                statement_id=exc.statement_id,
+                message=exc.message,
+                original_exception=exc,
+            ) from exc
+        return SavedSQLExecutionResult(result=result, duration_ms=execution.duration_ms or 0)
 
     def _save_result(self, saved_sql: ValidationSQL, execution: SQLExecutionResult) -> TestCaseResult:
-        self.initialize_results_table(self.sql_service, self.settings)
+        if not self._results_table_initialized:
+            self.initialize_results_table(self.sql_service, self.settings)
+            self._results_table_initialized = True
         result = TestCaseResult(
             validation_sql_id=saved_sql.validation_sql_id,
             test_case_id=saved_sql.test_case_id,
@@ -145,6 +189,15 @@ VALUES (:validation_sql_id, :test_case_id, :target_table, :payor, :file_type, :s
             )
         )
         return result
+
+    @staticmethod
+    def _validation_sql_from_row(row: list) -> ValidationSQL:
+        return ValidationSQL(
+            validation_sql_id=str(row[0]), test_case_id=str(row[1]), target_table=str(row[2]),
+            payor=str(row[3]), file_type=str(row[4]), generated_sql=str(row[5]),
+            genie_space_id=str(row[6]), conversation_id=str(row[7]), message_id=str(row[8]),
+            created_at=row[9], status=str(row[10]),
+        )
 
     @staticmethod
     def _parameters(**values: str) -> list[SQLParameter]:

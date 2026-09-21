@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import get_settings
+from app.models.batch_execution import BatchExecutionRequest, BatchExecutionResult
 from app.models.genie import GenieConversationMessageRequest, GenieSQLGeneration, GenieSerializedSpace, GenieSpace
 from app.models.llm import LLMRequest, LLMResponse
 from app.models.metadata import MetadataRefreshRequest
@@ -20,6 +21,7 @@ from app.services.databricks_model_serving_service import (
     DatabricksModelServingService,
 )
 from app.services.databricks_sql_service import DatabricksSQLExecutionError, DatabricksSQLService
+from app.services.batch_execution_service import BatchExecutionService
 from app.services.genie_context_service import GenieContextError, GenieContextService
 from app.services.genie_service import GenieError, GenieService
 from app.services.genie_space_coordinator import GenieSpaceConfigurationError, GenieSpaceCoordinator
@@ -127,6 +129,12 @@ def get_validation_sql_service(
     sql_service: Annotated[DatabricksSQLService, Depends(get_sql_service)],
 ) -> ValidationSQLService:
     return ValidationSQLService(sql_service=sql_service, settings=get_settings())
+
+
+def get_batch_execution_service(
+    validation_sql_service: Annotated[ValidationSQLService, Depends(get_validation_sql_service)],
+) -> BatchExecutionService:
+    return BatchExecutionService(validation_sql_service=validation_sql_service, settings=get_settings())
 
 
 def _sql_generation_message(qa_context: QAContext) -> str:
@@ -558,6 +566,27 @@ def list_validation_sql(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=_error_detail("Unable to retrieve saved validation SQL.", exc),
+        ) from exc
+
+
+@metadata_router.post("/qa/validation-sql/batch-execute", response_model=BatchExecutionResult)
+def execute_validation_sql_batch(
+    request: BatchExecutionRequest,
+    service: Annotated[BatchExecutionService, Depends(get_batch_execution_service)],
+):
+    try:
+        return service.execute_batch(request)
+    except ValidationSQLNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DatabricksSQLExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_error_detail("Unable to execute validation SQL batch.", exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - simple API-level handling
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_error_detail("Unable to execute validation SQL batch.", exc),
         ) from exc
 
 

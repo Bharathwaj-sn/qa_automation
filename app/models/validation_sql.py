@@ -34,3 +34,8 @@ class TestCaseResult(BaseModel):
     columns: list[str]
     rows: list[list]
     executed_at: datetime
+
+
+class SavedSQLExecutionResult(BaseModel):
+    result: TestCaseResult
+    duration_ms: int
