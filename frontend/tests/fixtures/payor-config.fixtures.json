@@ -1,0 +1,21 @@
+{
+  "payors": {
+    "success": {
+      "payors": ["ABC", "XYZ"]
+    },
+    "empty": {
+      "payors": []
+    }
+  },
+  "file_types": {
+    "request": {
+      "payor": "ABC"
+    },
+    "success": {
+      "file_types": ["claims", "member"]
+    },
+    "empty": {
+      "file_types": []
+    }
+  }
+}

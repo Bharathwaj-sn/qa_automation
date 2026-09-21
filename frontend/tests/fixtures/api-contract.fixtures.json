@@ -1,0 +1,53 @@
+{
+  "endpoints": [
+    { "method": "GET", "path": "/api/v1/databricks/catalogs", "fixture": "databricks.fixtures.json", "response": "catalogs.success" },
+    { "method": "POST", "path": "/api/v1/databricks/schemas:lookup", "fixture": "databricks.fixtures.json", "request": "schemas.request", "response": "schemas.success" },
+    { "method": "POST", "path": "/api/v1/databricks/schema-objects:lookup", "fixture": "databricks.fixtures.json", "request": "schema_objects.request", "response": "schema_objects.success" },
+    { "method": "POST", "path": "/api/v1/databricks/tables:lookup", "fixture": "databricks.fixtures.json", "request": "table_metadata.request", "response": "table_metadata.success" },
+    { "method": "GET", "path": "/api/v1/test-cases", "fixture": "test-case.fixtures.json", "response": "list.success" },
+    { "method": "POST", "path": "/api/v1/test-cases", "fixture": "test-case.fixtures.json", "request": "create.request", "response": "create.success" },
+    { "method": "GET", "path": "/api/v1/payor-config/payors", "fixture": "payor-config.fixtures.json", "response": "payors.success" },
+    { "method": "POST", "path": "/api/v1/payor-config/file-types:lookup", "fixture": "payor-config.fixtures.json", "request": "file_types.request", "response": "file_types.success" },
+    { "method": "GET", "path": "/api/v1/metadata/summary", "fixture": "metadata.fixtures.json", "response": "summary.success" },
+    { "method": "POST", "path": "/api/v1/metadata/refresh", "fixture": "metadata.fixtures.json", "request": "refresh.requests.table", "response": "refresh.success" },
+    { "method": "GET", "path": "/api/v1/genie-space/status", "fixture": "genie.fixtures.json", "response": "status.ready" },
+    { "method": "POST", "path": "/api/v1/qa/genie-context", "fixture": "genie.fixtures.json", "request": "context.request", "response": "context.success" },
+    { "method": "POST", "path": "/api/v1/qa/genie-space", "fixture": "genie.fixtures.json", "request": "generation.request", "response": "generation.success" },
+    { "method": "POST", "path": "/api/v1/qa/genie/conversations/{conversation_id}/messages", "fixture": "genie.fixtures.json", "request": "conversation.request", "response": "conversation.success" },
+    { "method": "POST", "path": "/api/v1/qa/validation-sql", "fixture": "validation-sql.fixtures.json", "request": "save.request", "response": "save.success" },
+    { "method": "POST", "path": "/api/v1/qa/validation-sql:search", "fixture": "validation-sql.fixtures.json", "request": "search.request", "response": "search.success" },
+    { "method": "POST", "path": "/api/v1/qa/validation-sql/{validation_sql_id}:execute", "fixture": "validation-sql.fixtures.json", "request": "execute.request", "response": "execute.success" }
+  ],
+  "workflows": {
+    "metadata": [
+      "GET /api/v1/databricks/catalogs",
+      "POST /api/v1/databricks/schemas:lookup",
+      "POST /api/v1/databricks/schema-objects:lookup",
+      "GET /api/v1/metadata/summary",
+      "POST /api/v1/metadata/refresh"
+    ],
+    "test_cases": [
+      "GET /api/v1/test-cases",
+      "POST /api/v1/test-cases"
+    ],
+    "generation_configuration": [
+      "GET /api/v1/databricks/catalogs",
+      "POST /api/v1/databricks/schemas:lookup",
+      "POST /api/v1/databricks/schema-objects:lookup",
+      "GET /api/v1/payor-config/payors",
+      "POST /api/v1/payor-config/file-types:lookup",
+      "POST /api/v1/qa/genie-context"
+    ],
+    "genie_and_save": [
+      "GET /api/v1/genie-space/status",
+      "POST /api/v1/qa/genie-context",
+      "POST /api/v1/qa/genie-space",
+      "POST /api/v1/qa/genie/conversations/{conversation_id}/messages",
+      "POST /api/v1/qa/validation-sql"
+    ],
+    "execution": [
+      "POST /api/v1/qa/validation-sql:search",
+      "POST /api/v1/qa/validation-sql/{validation_sql_id}:execute"
+    ]
+  }
+}

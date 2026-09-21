@@ -1,0 +1,102 @@
+{
+  "summary": {
+    "success": {
+      "catalog_count": 1,
+      "schema_count": 1,
+      "table_count": 1,
+      "volume_count": 1,
+      "last_refreshed_at": "2026-09-21T12:00:00Z",
+      "status": "SUCCESS",
+      "scope_type": "table",
+      "catalog_name": "main",
+      "schema_name": "qa"
+    },
+    "empty": {
+      "catalog_count": 0,
+      "schema_count": 0,
+      "table_count": 0,
+      "volume_count": 0,
+      "last_refreshed_at": null,
+      "status": "SUCCESS",
+      "scope_type": null,
+      "catalog_name": null,
+      "schema_name": null
+    }
+  },
+  "refresh": {
+    "requests": {
+      "catalog": {
+        "scope_type": "catalog",
+        "catalog_name": "main"
+      },
+      "schema": {
+        "scope_type": "schema",
+        "catalog_name": "main",
+        "schema_name": "qa"
+      },
+      "table": {
+        "scope_type": "table",
+        "catalog_name": "main",
+        "schema_name": "qa",
+        "table_name": "claims"
+      }
+    },
+    "success": {
+      "metadata_version": "1.0",
+      "refresh": {
+        "status": "SUCCESS",
+        "refreshed_at": "2026-09-21T12:00:00Z",
+        "duration_ms": 125,
+        "scope": {
+          "type": "table",
+          "catalog_name": "main",
+          "schema_name": "qa",
+          "table_name": "claims"
+        }
+      },
+      "catalogs": [
+        {
+          "name": "main",
+          "metadata": {
+            "refreshed_at": "2026-09-21T12:00:00Z"
+          },
+          "schemas": [
+            {
+              "name": "qa",
+              "metadata": {
+                "refreshed_at": "2026-09-21T12:00:00Z"
+              },
+              "tables": [
+                {
+                  "catalog_name": "main",
+                  "schema_name": "qa",
+                  "name": "claims",
+                  "metadata": {
+                    "refreshed_at": "2026-09-21T12:00:00Z"
+                  },
+                  "table_type": "MANAGED",
+                  "data_source_format": "DELTA",
+                  "comment": null,
+                  "storage_location": "dbfs:/example/claims",
+                  "columns": [
+                    {
+                      "name": "claim_id",
+                      "type_name": "STRING",
+                      "type_text": "string",
+                      "nullable": false,
+                      "position": 0,
+                      "comment": null
+                    }
+                  ]
+                }
+              ],
+              "volumes": [
+                { "name": "landing" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

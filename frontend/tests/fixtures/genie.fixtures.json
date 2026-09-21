@@ -1,0 +1,96 @@
+{
+  "status": {
+    "ready": {
+      "status": "ready",
+      "title": "Health Check SQL Generator",
+      "space_id": "space-1"
+    },
+    "pending": {
+      "status": "pending_creation",
+      "title": "Health Check SQL Generator",
+      "space_id": null
+    }
+  },
+  "context": {
+    "request": {
+      "test_case_id": "TC000001",
+      "catalog": "main",
+      "schema": "qa",
+      "selections": [
+        {
+          "table_name": "claims",
+          "payor": "ABC",
+          "file_type": "claims"
+        }
+      ]
+    },
+    "success": {
+      "version": 2,
+      "config": {
+        "sample_questions": [
+          {
+            "id": "question-1",
+            "question": ["Generate validation SQL for TC000001."]
+          }
+        ]
+      },
+      "data_sources": {
+        "tables": [
+          {
+            "identifier": "main.qa.claims",
+            "column_configs": [
+              {
+                "column_name": "claim_id",
+                "enable_format_assistance": true,
+                "enable_entity_matching": true
+              }
+            ]
+          }
+        ]
+      },
+      "instructions": {
+        "text_instructions": [
+          {
+            "id": "instruction-1",
+            "content": ["Return only executable validation SQL."]
+          }
+        ],
+        "example_question_sqls": []
+      }
+    }
+  },
+  "generation": {
+    "request": {
+      "test_case_id": "TC000001",
+      "catalog": "main",
+      "schema": "qa",
+      "selections": [
+        {
+          "table_name": "claims",
+          "payor": "ABC",
+          "file_type": "claims"
+        }
+      ]
+    },
+    "success": {
+      "space_id": "space-1",
+      "conversation_id": "conversation-1",
+      "message_id": "message-1",
+      "sql": "SELECT * FROM main.qa.claims WHERE claim_id IS NULL"
+    }
+  },
+  "conversation": {
+    "path": {
+      "conversation_id": "conversation-1"
+    },
+    "request": {
+      "content": "Limit the result to the current processing date."
+    },
+    "success": {
+      "space_id": "space-1",
+      "conversation_id": "conversation-1",
+      "message_id": "message-2",
+      "sql": "SELECT * FROM main.qa.claims WHERE claim_id IS NULL AND processing_date = current_date()"
+    }
+  }
+}

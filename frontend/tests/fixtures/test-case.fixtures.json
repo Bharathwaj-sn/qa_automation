@@ -1,0 +1,57 @@
+{
+  "create": {
+    "request": {
+      "pipeline": "claims_ingestion",
+      "component": "silver_claims",
+      "test_scenario": "Reject records without a claim identifier.",
+      "target_object": "main.qa.claims",
+      "input_data": "Daily claims feed",
+      "validation_check": "Find records where claim_id is null.",
+      "expected_result": "No rows are returned."
+    },
+    "success": {
+      "test_case_id": "TC000001",
+      "pipeline": "claims_ingestion",
+      "component": "silver_claims",
+      "test_scenario": "Reject records without a claim identifier.",
+      "target_object": "main.qa.claims",
+      "input_data": "Daily claims feed",
+      "validation_check": "Find records where claim_id is null.",
+      "expected_result": "No rows are returned.",
+      "status": "ACTIVE",
+      "created_at": "2026-09-21T12:00:00Z",
+      "updated_at": "2026-09-21T12:00:00Z"
+    }
+  },
+  "list": {
+    "success": [
+      {
+        "test_case_id": "TC000001",
+        "pipeline": "claims_ingestion",
+        "component": "silver_claims",
+        "test_scenario": "Reject records without a claim identifier.",
+        "target_object": "main.qa.claims",
+        "input_data": "Daily claims feed",
+        "validation_check": "Find records where claim_id is null.",
+        "expected_result": "No rows are returned.",
+        "status": "ACTIVE",
+        "created_at": "2026-09-21T12:00:00Z",
+        "updated_at": "2026-09-21T12:00:00Z"
+      },
+      {
+        "test_case_id": "TC000002",
+        "pipeline": "member_ingestion",
+        "component": "silver_members",
+        "test_scenario": "Validate member identifiers.",
+        "target_object": "main.qa.members",
+        "input_data": "Daily member feed",
+        "validation_check": "Find duplicate member identifiers.",
+        "expected_result": "No rows are returned.",
+        "status": "ACTIVE",
+        "created_at": null,
+        "updated_at": null
+      }
+    ],
+    "empty": []
+  }
+}

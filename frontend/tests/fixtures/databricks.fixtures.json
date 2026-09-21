@@ -1,0 +1,80 @@
+{
+  "catalogs": {
+    "success": {
+      "catalogs": [
+        { "name": "main" },
+        { "name": "analytics" }
+      ]
+    },
+    "empty": {
+      "catalogs": []
+    }
+  },
+  "schemas": {
+    "request": {
+      "catalog_name": "main"
+    },
+    "success": {
+      "schemas": [
+        { "name": "qa" },
+        { "name": "reporting" }
+      ]
+    },
+    "empty": {
+      "schemas": []
+    }
+  },
+  "schema_objects": {
+    "request": {
+      "catalog_name": "main",
+      "schema_name": "qa"
+    },
+    "success": {
+      "tables": [
+        { "name": "claims" },
+        { "name": "members" }
+      ],
+      "volumes": [
+        { "name": "landing" }
+      ]
+    },
+    "empty": {
+      "tables": [],
+      "volumes": []
+    }
+  },
+  "table_metadata": {
+    "request": {
+      "catalog_name": "main",
+      "schema_name": "qa",
+      "table_name": "claims"
+    },
+    "success": {
+      "catalog_name": "main",
+      "schema_name": "qa",
+      "name": "claims",
+      "table_type": "MANAGED",
+      "data_source_format": "DELTA",
+      "comment": "Validated claims records",
+      "storage_location": "dbfs:/example/claims",
+      "columns": [
+        {
+          "name": "claim_id",
+          "type_name": "STRING",
+          "type_text": "string",
+          "nullable": false,
+          "position": 0,
+          "comment": "Claim identifier"
+        },
+        {
+          "name": "paid_amount",
+          "type_name": "DECIMAL",
+          "type_text": "decimal(18,2)",
+          "nullable": true,
+          "position": 1,
+          "comment": null
+        }
+      ]
+    }
+  }
+}
